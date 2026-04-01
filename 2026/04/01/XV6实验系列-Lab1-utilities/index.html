@@ -1,0 +1,568 @@
+<!DOCTYPE html><html lang="en" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>XV6实验系列_Lab1_utilities | Hexo</title><meta name="author" content="QQLaoban"><meta name="copyright" content="QQLaoban"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="Lab1_Util 笔记 1. Boot xv6(easy)1. make qemu 报错：Couldn’t find a riscv64 version of GCC&#x2F;binutils错误现象：执行 make qemu 时提示找不到 riscv64 架构的 GCC 编译器和 binutils 工具链。 原因分析：XV6 操作系统是为 RISC-V 64 位架构编写的，因此需要专门的交叉">
+<meta property="og:type" content="article">
+<meta property="og:title" content="XV6实验系列_Lab1_utilities">
+<meta property="og:url" content="https://q1375854021.github.io/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab1-utilities/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="Lab1_Util 笔记 1. Boot xv6(easy)1. make qemu 报错：Couldn’t find a riscv64 version of GCC&#x2F;binutils错误现象：执行 make qemu 时提示找不到 riscv64 架构的 GCC 编译器和 binutils 工具链。 原因分析：XV6 操作系统是为 RISC-V 64 位架构编写的，因此需要专门的交叉">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://q1375854021.github.io/QQBlog/img/butterfly-icon.png">
+<meta property="article:published_time" content="2026-04-01T15:21:30.000Z">
+<meta property="article:modified_time" content="2026-04-01T15:25:24.050Z">
+<meta property="article:author" content="QQLaoban">
+<meta property="article:tag" content="XV6-2024">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://q1375854021.github.io/QQBlog/img/butterfly-icon.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "XV6实验系列_Lab1_utilities",
+  "url": "https://q1375854021.github.io/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab1-utilities/",
+  "image": "https://q1375854021.github.io/QQBlog/img/butterfly-icon.png",
+  "datePublished": "2026-04-01T15:21:30.000Z",
+  "dateModified": "2026-04-01T15:25:24.050Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "QQLaoban",
+      "url": "https://q1375854021.github.io/QQBlog"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/QQBlog/img/favicon.png"><link rel="canonical" href="https://q1375854021.github.io/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab1-utilities/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/QQBlog/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/QQBlog/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: 'Copy Successful',
+    error: 'Copy Failed',
+    noSupport: 'Browser Not Supported'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: 'Just now',
+    min: 'minutes ago',
+    hour: 'hours ago',
+    day: 'days ago',
+    month: 'months ago'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: 'Load More'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'XV6实验系列_Lab1_utilities',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/QQBlog/"><span class="site-name">Hexo</span></a><a class="nav-page-title" href="/QQBlog/"><span class="site-name">XV6实验系列_Lab1_utilities</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  Back to Home</span></span></a></span><div id="menus"></div></nav><div id="post-info"><h1 class="post-title">XV6实验系列_Lab1_utilities</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">Created</span><time class="post-meta-date-created" datetime="2026-04-01T15:21:30.000Z" title="Created 2026-04-01 23:21:30">2026-04-01</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">Updated</span><time class="post-meta-date-updated" datetime="2026-04-01T15:25:24.050Z" title="Updated 2026-04-01 23:25:24">2026-04-01</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">Post Views:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="Lab1-Util-笔记"><a href="#Lab1-Util-笔记" class="headerlink" title="Lab1_Util 笔记"></a>Lab1_Util 笔记</h1><hr>
+<h3 id="1-Boot-xv6-easy"><a href="#1-Boot-xv6-easy" class="headerlink" title="1. Boot xv6(easy)"></a>1. Boot xv6(easy)</h3><h5 id="1-make-qemu-报错：Couldn’t-find-a-riscv64-version-of-GCC-binutils"><a href="#1-make-qemu-报错：Couldn’t-find-a-riscv64-version-of-GCC-binutils" class="headerlink" title="1. make qemu 报错：Couldn’t find a riscv64 version of GCC&#x2F;binutils"></a>1. make qemu 报错：Couldn’t find a riscv64 version of GCC&#x2F;binutils</h5><p><strong>错误现象：</strong><br>执行 <code>make qemu</code> 时提示找不到 riscv64 架构的 GCC 编译器和 binutils 工具链。</p>
+<p><strong>原因分析：</strong><br>XV6 操作系统是为 RISC-V 64 位架构编写的，因此需要专门的交叉编译工具链。交叉编译是指在一个架构（如 x86_64）上编译生成另一个架构（如 riscv64）的可执行文件。普通的 x86 编译器无法生成 RISC-V 指令集的代码。</p>
+<p><strong>我的推测：</strong> 是因为我的环境里面没有安装 riscv64 的 GCC 编译工具链。<strong>（推测正确）</strong></p>
+<p><strong>解决方案：</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> apt install gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu qemu-system-misc gdb-multiarch</span><br></pre></td></tr></table></figure>
+
+<p><strong>各组件作用说明：</strong></p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>gcc-riscv64-linux-gnu</code></td>
+<td>RISC-V 64 位交叉编译器，将 C 代码编译为 RISC-V 机器码</td>
+</tr>
+<tr>
+<td><code>binutils-riscv64-linux-gnu</code></td>
+<td>RISC-V 二进制工具集（as、ld、objdump 等），用于汇编、链接和目标文件分析</td>
+</tr>
+<tr>
+<td><code>qemu-system-misc</code></td>
+<td>QEMU 模拟器，支持 RISC-V 架构的系统级模拟</td>
+</tr>
+<tr>
+<td><code>gdb-multiarch</code></td>
+<td>支持多架构的 GDB 调试器，可用于调试 RISC-V 程序</td>
+</tr>
+</tbody></table>
+<p><strong>验证安装：</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">riscv64-linux-gnu-gcc --version</span><br><span class="line">riscv64-linux-gnu-objdump --version</span><br><span class="line">qemu-system-riscv64 --version</span><br></pre></td></tr></table></figure>
+
+<p>执行上述命令后显示版本信息即表示安装成功。</p>
+<p><strong>结果：</strong> 安装完成后，<code>make qemu</code> 编译成功。</p>
+<hr>
+<h5 id="2-编译卡死：没有出现-符号"><a href="#2-编译卡死：没有出现-符号" class="headerlink" title="2. 编译卡死：没有出现 $ 符号"></a>2. 编译卡死：没有出现 $ 符号</h5><p><strong>错误现象：</strong><br>编译虽然成功，但 QEMU 启动后一直卡在某个界面，始终没有出现预期的 shell 提示符 <code>$</code>。</p>
+<p><strong>排查思路：</strong><br>这是一个比较难定位的问题，需要采用排除法逐步缩小范围。</p>
+<p><strong>(1) make clean 再编译</strong></p>
+<ul>
+<li>目的：排除之前编译残留文件导致的问题</li>
+<li>结果：同样结果，问题依旧</li>
+</ul>
+<p><strong>(2) make clean, make CPUS&#x3D;1 qemu，设定为单核启动</strong></p>
+<ul>
+<li>目的：排除多核并发导致的竞争条件问题</li>
+<li>结果：同样结果，问题依旧</li>
+</ul>
+<p><strong>(3) 怀疑是编译版本的问题</strong></p>
+<ul>
+<li>排查了 Makefile 脚本，以及工具位置</li>
+<li>结果：配置没有问题</li>
+</ul>
+<p><strong>关键线索：</strong><br>只能按 <code>Ctrl+A</code> 然后按 <code>X</code> 退出 QEMU，退出时打印 <code>QEMU: Terminated</code>。这说明 QEMU 环境已经成功启动，但操作系统没有完成 boot 过程。</p>
+<p><strong>深入排查 - 使用 GDB 调试：</strong></p>
+<p>使用 <code>make qemu-gdb</code> 启动带 GDB 调试的 QEMU，然后连接 GDB 进行排查。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 终端 1：启动 QEMU 并等待 GDB 连接</span></span><br><span class="line">make qemu-gdb</span><br><span class="line"></span><br><span class="line"><span class="comment"># 终端 2：连接 GDB</span></span><br><span class="line">riscv64-linux-gnu-gdb kernel/kernel</span><br><span class="line">(gdb) target remote localhost:26000</span><br></pre></td></tr></table></figure>
+
+<p><strong>发现问题：</strong><br>在 <code>timerinit</code> 函数中的 <code>w_mie(r_mie() | MIE_STIE);</code> 这行代码处，程序跳转到了地址 0 处。</p>
+<p><strong>初步推断：</strong> timer 的中断向量表没有正确设置。</p>
+<p><strong>进一步发现：</strong><br>XV6 官方网页目录的 Labs 中有 tools 和 guidance 文档，之前没有仔细阅读，可能存在环境配置上的遗漏。具体见《Tools.md》。</p>
+<p><strong>最终解决：</strong><br>按照《Tools.md》配置好环境之后，<code>make qemu</code> 就成功了。</p>
+<hr>
+<p><strong>核心问题解答：</strong></p>
+<blockquote>
+<p><strong>Q: 我的代码里确实 timervec 没有设置，为什么配置了环境就可以了呢？</strong></p>
+</blockquote>
+<p><strong>A: 这是 QEMU 版本与 RISC-V 扩展兼容性的问题。</strong></p>
+<p><strong>详细解释：</strong></p>
+<ol>
+<li><p><strong>sstc 扩展是什么？</strong></p>
+<p>sstc (Supervisor Software Timer Counter) 是 RISC-V 的一个扩展，允许 S 模式（监督模式）直接访问时间计数器。2024 年的 XV6 代码用到了 RISC-V 的 sstc 扩展来实现时钟中断。</p>
+</li>
+<li><p><strong>QEMU 6.2.0 的问题：</strong></p>
+<p>QEMU 6.2.0 版本不支持 sstc 扩展，而新版 XV6 代码依赖这个扩展。当 QEMU 不支持所需的 RISC-V 扩展时，会导致时钟中断机制无法正常工作，系统无法完成初始化。</p>
+</li>
+<li><p><strong>为什么升级 QEMU 后就好了？</strong></p>
+<p>QEMU 7.2.0 及以上版本支持 sstc 扩展，升级后 XV6 可以正常使用新的时钟中断机制。</p>
+</li>
+<li><p><strong>当前 XV6 的时钟中断流程：</strong></p>
+<p>在配置好环境后，时钟中断的配置不在 <code>timervec</code> 中，而是在 <code>devintr</code> 函数中处理。具体跳转过程如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">stvec (Supervisor Trap Vector) </span><br><span class="line">    ↓</span><br><span class="line">kernelvec (内核陷阱向量处理程序)</span><br><span class="line">    ↓</span><br><span class="line">检查 scause 寄存器 == 0x8000000000000005L (S-mode Timer Interrupt)</span><br><span class="line">    ↓</span><br><span class="line">执行 clockintr (时钟中断处理函数)</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p><strong>寄存器说明：</strong></p>
+<table>
+<thead>
+<tr>
+<th>寄存器</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>stvec</code></td>
+<td>监督模式陷阱向量基地址寄存器，定义异常&#x2F;中断的入口地址</td>
+</tr>
+<tr>
+<td><code>scause</code></td>
+<td>监督模式异常原因寄存器，0x8000000000000005 表示 S 模式定时器中断</td>
+</tr>
+<tr>
+<td><code>sie</code>&#x2F;<code>mie</code></td>
+<td>中断使能寄存器，MIE_STIE 位启用软件定时器中断</td>
+</tr>
+</tbody></table>
+<p><strong>经验总结：</strong></p>
+<ul>
+<li>遇到 XV6 问题时，先仔细阅读官方 Labs 的 tools 和 guidance 文档</li>
+<li>QEMU 版本对 RISC-V 扩展的支持很重要，建议使用官方推荐的 7.2.0 版本</li>
+<li>使用 GDB 调试可以帮助定位底层硬件相关的问题</li>
+</ul>
+<hr>
+<h3 id="2-sleep-easy"><a href="#2-sleep-easy" class="headerlink" title="2. sleep(easy)"></a>2. sleep(easy)</h3><p><strong>实验目标：</strong> 实现系统调用 <code>sleep()</code>，使进程可以挂起指定的时间片。</p>
+<p><strong>涉及文件：</strong></p>
+<ul>
+<li><code>kernel/sysproc.c</code> - 添加 <code>sys_sleep()</code> 系统调用</li>
+<li><code>kernel/proc.c</code> - 理解 <code>sleep()</code> 和 <code>wakeup()</code> 机制</li>
+</ul>
+<h5 id="1-sys-sleep-的-sleep-ticks-tickslock-实现"><a href="#1-sys-sleep-的-sleep-ticks-tickslock-实现" class="headerlink" title="1. sys_sleep 的 sleep(&amp;ticks, &amp;tickslock) 实现"></a>1. sys_sleep 的 sleep(&amp;ticks, &amp;tickslock) 实现</h5><p><strong>实现原理：</strong></p>
+<p>(1) <strong>进入睡眠状态：</strong> 当前进程 p 转变为 Sleeping 态，然后将 p 的等待频道 <code>p-&gt;chan</code> 指向 <code>ticks</code>。<code>chan</code> 是一个通道指针，用于标识一组等待同一事件的进程。</p>
+<p>(2) <strong>全局时钟计数器：</strong> <code>ticks</code> 是全局的时钟计数器，每次时钟中断，<code>ticks</code> 都会加 1，并且使用 <code>wakeup(ticks)</code> 把在 <code>ticks</code> 通道上所有睡眠的线程唤醒。</p>
+<p>(3) <strong>循环检查：</strong> 然后回到 <code>sys_sleep</code> 中，检查是否需要真正唤醒了，如果还没有到唤醒时间，再次执行 <code>sleep</code>。</p>
+<p>(4) <strong>惊群效应：</strong> 因为每个睡眠的线程都会唤醒，每个线程都进行检查，所以非常消耗时间（惊群效应）。因为 XV6 只是简单的教学操作系统，现代的操作系统都会用<strong>定时器红黑树</strong>、<strong>时间轮</strong>来计算谁先醒来。</p>
+<p>(5) <strong>效率问题：</strong> 效率极低，每个睡眠的线程都会经历一个过程：从调度器切换到该线程 → 检查 <code>sys_sleep</code> 的 <code>while</code> 循环发现时间没到 → 再次调用 <code>sleep</code> → 立刻切换回调度器。假如有 100 个睡眠线程，那么 CPU 会进行 99 次无意义的上下文切换。</p>
+<p><strong>知识点扩展：</strong></p>
+<p><strong>sleep() 和 wakeup() 机制：</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// sleep() 的基本流程</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">sleep</span><span class="params">(<span class="type">void</span> *chan, <span class="keyword">struct</span> spinlock *lk)</span> &#123;</span><br><span class="line">    acquire(&amp;p-&gt;lock);           <span class="comment">// 获取进程锁</span></span><br><span class="line">    release(lk);                 <span class="comment">// 释放传入的锁</span></span><br><span class="line">    p-&gt;chan = chan;              <span class="comment">// 设置等待通道</span></span><br><span class="line">    p-&gt;state = SLEEPING;         <span class="comment">// 设置状态为睡眠</span></span><br><span class="line">    sched();                     <span class="comment">// 调度到其他进程</span></span><br><span class="line">    <span class="comment">// 被唤醒后继续执行</span></span><br><span class="line">    p-&gt;chan = <span class="number">0</span>;                 <span class="comment">// 清除通道</span></span><br><span class="line">    release(&amp;p-&gt;lock);</span><br><span class="line">    acquire(lk);                 <span class="comment">// 重新获取锁</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// wakeup() 的基本流程</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">wakeup</span><span class="params">(<span class="type">void</span> *chan)</span> &#123;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">proc</span> *<span class="title">p</span>;</span></span><br><span class="line">    <span class="keyword">for</span>(p = proc; p &lt; &amp;proc[NPROC]; p++) &#123;</span><br><span class="line">        <span class="keyword">if</span>(p-&gt;state == SLEEPING &amp;&amp; p-&gt;chan == chan) &#123;</span><br><span class="line">            p-&gt;state = RUNNABLE;  <span class="comment">// 设置为可运行状态</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>现代操作系统的优化：</strong></p>
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>原理</th>
+<th>优势</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>定时器红黑树</td>
+<td>按超时时间排序，O(log n) 查找</td>
+<td>快速找到最近的定时器</td>
+</tr>
+<tr>
+<td>时间轮算法</td>
+<td>类似时钟的循环数组</td>
+<td>O(1) 插入和删除</td>
+</tr>
+<tr>
+<td>分级时间轮</td>
+<td>多层时间轮处理不同精度</td>
+<td>支持长延时和高精度</td>
+</tr>
+</tbody></table>
+<p><strong>思考题：</strong></p>
+<ol>
+<li>为什么 <code>sleep()</code> 需要先 <code>release(lk)</code> 再 <code>sched()</code>？<ul>
+<li>答：避免死锁，让其他进程有机会获取锁并调用 <code>wakeup()</code></li>
+</ul>
+</li>
+<li>为什么被唤醒后还要重新 <code>acquire(lk)</code>？<ul>
+<li>答：保证调用者期望的锁状态，维持不变式</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h5 id="2-时钟中断频率"><a href="#2-时钟中断频率" class="headerlink" title="2. 时钟中断频率"></a>2. 时钟中断频率</h5><p>(1) <code>clockintr()</code> 函数内有着这样一个语句：<code>w_stimecmp(r_time() + 1000000);</code></p>
+<ul>
+<li><code>r_time()</code> 是操作 <code>time</code> 寄存器（时钟计数器，CPU 时钟频率的计数器，由晶振 +PLL 产生，通常不是 RISC-V 基金会考虑，而是 CPU 厂商考虑）。<code>time</code> 是 0xC01，非特权级手册有写。</li>
+<li><code>w_stimecmp()</code> 操作 <code>stimecmp</code> 寄存器 (地址 0x14)：RISC-V 特权级手册有写。</li>
+</ul>
+<p>(2) 使用下面的语句查看 QEMU 的设备树：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">qemu-system-riscv64 -machine virt -machine dumpdtb=qemu.dtb</span><br><span class="line">dtc -I dtb -O dts -o qemu.dts qemu.dtb</span><br></pre></td></tr></table></figure>
+
+<p>qemu.dts 里有：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">timebase-frequency = &lt;0x989680&gt;;</span><br></pre></td></tr></table></figure>
+
+<p>说明 CPU 的时钟频率是 10MHz (0x989680 &#x3D; 10,000,000)，所以 <code>clockintr</code> 的中断频率是 100ms 一次。</p>
+<p><strong>知识点扩展：</strong></p>
+<p><strong>RISC-V 时间寄存器：</strong></p>
+<table>
+<thead>
+<tr>
+<th>寄存器</th>
+<th>地址</th>
+<th>权限</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>time</code></td>
+<td>0xC01</td>
+<td>U&#x2F;S&#x2F;M</td>
+<td>时间计数器，只读</td>
+</tr>
+<tr>
+<td><code>stimecmp</code></td>
+<td>0x14</td>
+<td>S</td>
+<td>监督模式时间比较寄存器</td>
+</tr>
+</tbody></table>
+<p><strong>中断频率计算：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">timebase-frequency = 10,000,000 Hz</span><br><span class="line">每次中断增量 = 1,000,000</span><br><span class="line">中断频率 = 10,000,000 / 1,000,000 = 10 Hz</span><br><span class="line">中断周期 = 1 / 10 = 100ms</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="3-primes"><a href="#3-primes" class="headerlink" title="3. primes"></a>3. primes</h3><p><strong>实验目标：</strong> 使用 Unix 管道实现并行的素数筛（Sieve of Eratosthenes）。</p>
+<p><strong>涉及文件：</strong></p>
+<ul>
+<li><code>user/primes.c</code> - 创建管道和进程，实现素数筛</li>
+</ul>
+<h5 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h5><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/types.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;user/user.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">sieve</span><span class="params">(<span class="type">int</span> p_in)</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span>&#123;</span><br><span class="line">    <span class="keyword">if</span>(argc != <span class="number">1</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;Usage : primes\n&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> p[<span class="number">2</span>];</span><br><span class="line">    pipe(p);</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> pid = fork();</span><br><span class="line">    <span class="keyword">if</span>(pid &lt; <span class="number">0</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;fork() failed\n&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span>(pid &gt; <span class="number">0</span>)&#123;</span><br><span class="line">        close(p[<span class="number">0</span>]);</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">2</span>; i&lt;<span class="number">280</span>; ++i)&#123;</span><br><span class="line">            write(p[<span class="number">1</span>], &amp;i, <span class="keyword">sizeof</span>(i));</span><br><span class="line">        &#125;</span><br><span class="line">        close(p[<span class="number">1</span>]);</span><br><span class="line">        wait(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span>&#123;</span><br><span class="line">        close(p[<span class="number">1</span>]);</span><br><span class="line">        sieve(p[<span class="number">0</span>]);</span><br><span class="line">        close(p[<span class="number">0</span>]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">sieve</span><span class="params">(<span class="type">int</span> p_in)</span>&#123;</span><br><span class="line">    <span class="type">int</span> val = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span>(read(p_in, &amp;val, <span class="keyword">sizeof</span>(<span class="type">int</span>)) &gt; <span class="number">0</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;%d \n&quot;</span>, val);</span><br><span class="line">    &#125;<span class="keyword">else</span>&#123;</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> p[<span class="number">2</span>];</span><br><span class="line">    <span class="keyword">if</span>(pipe(p) &lt; <span class="number">0</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;pipe() failed\n&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> ret = fork();</span><br><span class="line">    <span class="keyword">if</span>(ret &lt; <span class="number">0</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;fork() failed\n&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> num = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span>(ret &gt; <span class="number">0</span>)&#123;</span><br><span class="line">        close(p[<span class="number">0</span>]);        <span class="comment">// 关闭读端口</span></span><br><span class="line">        <span class="keyword">while</span>(read(p_in, &amp;num, <span class="keyword">sizeof</span>(<span class="type">int</span>)) &gt; <span class="number">0</span>)&#123;</span><br><span class="line">            <span class="keyword">if</span>(num % val != <span class="number">0</span>)&#123;</span><br><span class="line">                write(p[<span class="number">1</span>], &amp;num, <span class="keyword">sizeof</span>(<span class="type">int</span>));</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        close(p_in);</span><br><span class="line">        close(p[<span class="number">1</span>]);</span><br><span class="line">        wait(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span>&#123;</span><br><span class="line">        close(p_in);</span><br><span class="line">        close(p[<span class="number">1</span>]);        <span class="comment">// 关闭不要的写端</span></span><br><span class="line">        sieve(p[<span class="number">0</span>]);        <span class="comment">// 递归</span></span><br><span class="line">        close(p[<span class="number">0</span>]);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="问题分析"><a href="#问题分析" class="headerlink" title="问题分析"></a>问题分析</h5><p><strong>资源限制：</strong><br>这样是可以的，但是当 280 变到 300 的时候，就会产生 <code>fork failed</code>。因为 XV6 的资源有限：</p>
+<ul>
+<li>单个进程的文件描述符最多只有 16 个</li>
+<li>全局最多的 FD 个数最多是 100 个</li>
+<li>同一时刻最多只能存在 64 个进程</li>
+</ul>
+<p><strong>效率问题：</strong><br>这个打印质数的效率很低，因为创建的所有进程只有到最后时刻才能回收。</p>
+<p><strong>知识点扩展：</strong></p>
+<p><strong>埃拉托斯特尼筛法（Sieve of Eratosthenes）：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">2  3  4  5  6  7  8  9  10 11 12 13 14 15 ...</span><br><span class="line">   ✓  ✗     ✗     ✗      ✗      ✗       (2 的倍数)</span><br><span class="line">      ✓        ✗           ✗            (3 的倍数)</span><br><span class="line">         ✓                 ✗            (5 的倍数)</span><br><span class="line">            ✓                            (7 的倍数)</span><br></pre></td></tr></table></figure>
+
+<p><strong>管道通信原理：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">main 进程 --[pipe]--&gt; sieve(2) --[pipe]--&gt; sieve(3) --[pipe]--&gt; sieve(5) --&gt; ...</span><br><span class="line">           (过滤 2 的倍数)      (过滤 3 的倍数)      (过滤 5 的倍数)</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么需要关闭管道？</strong></p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>close(p[0])</code> (写进程)</td>
+<td>不需要读，关闭避免干扰</td>
+</tr>
+<tr>
+<td><code>close(p[1])</code> (读进程)</td>
+<td>写端不关闭，read 永远不会返回 0（EOF）</td>
+</tr>
+<tr>
+<td><code>close(p_in)</code> (子进程)</td>
+<td>不再需要输入管道，释放 FD</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="4-find"><a href="#4-find" class="headerlink" title="4. find"></a>4. find</h3><p><strong>实验目标：</strong> 实现类似 Unix <code>find</code> 命令的目录树搜索工具。</p>
+<p><strong>涉及文件：</strong></p>
+<ul>
+<li><code>user/find.c</code> - 递归遍历目录树</li>
+</ul>
+<h5 id="代码实现-1"><a href="#代码实现-1" class="headerlink" title="代码实现"></a>代码实现</h5><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/types.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/stat.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;user/user.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/fs.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/fcntl.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> BUF_SIZE = <span class="number">512</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">char</span> *</span><br><span class="line"><span class="title function_">fmtname</span><span class="params">(<span class="type">char</span> *path)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">static</span> <span class="type">char</span> buf[DIRSIZ + <span class="number">1</span>];</span><br><span class="line">    <span class="type">char</span> *p;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Find first character after last slash.</span></span><br><span class="line">    <span class="keyword">for</span> (p = path + <span class="built_in">strlen</span>(path); p &gt;= path &amp;&amp; *p != <span class="string">&#x27;/&#x27;</span>; p--)</span><br><span class="line">        ;</span><br><span class="line">    p++;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Return blank-padded name.</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">strlen</span>(p) &gt;= DIRSIZ)</span><br><span class="line">        <span class="keyword">return</span> p;</span><br><span class="line">    memmove(buf, p, <span class="built_in">strlen</span>(p));</span><br><span class="line">    <span class="built_in">memset</span>(buf + <span class="built_in">strlen</span>(p), <span class="string">&#x27; &#x27;</span>, DIRSIZ - <span class="built_in">strlen</span>(p));</span><br><span class="line">    <span class="keyword">return</span> buf;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// buf 是申请的大缓冲区，里面存放当前搜索的路径位置</span></span><br><span class="line"><span class="comment">// name 是要搜索的文件名</span></span><br><span class="line"><span class="comment">// ori_p 是 buf 传入时的末尾位置</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">find</span><span class="params">(<span class="type">char</span> *buf, <span class="type">char</span> *name, <span class="type">char</span> *ori_p)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> fd;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">dirent</span> <span class="title">de</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">stat</span> <span class="title">st</span>;</span></span><br><span class="line">    <span class="type">char</span> *cur_p;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">strlen</span>(buf) + <span class="number">1</span> + DIRSIZ + <span class="number">1</span> &gt; BUF_SIZE)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;find: path too long\n&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> ((fd = open(buf, O_RDONLY)) &lt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="built_in">fprintf</span>(<span class="number">2</span>, <span class="string">&quot;ls: cannot open %s\n&quot;</span>, buf);</span><br><span class="line">        close(fd);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (read(fd, &amp;de, <span class="keyword">sizeof</span>(de)) == <span class="keyword">sizeof</span>(de))</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 恢复 buf</span></span><br><span class="line">        cur_p = ori_p;</span><br><span class="line">        <span class="built_in">memset</span>(cur_p, <span class="number">0</span>, BUF_SIZE - (cur_p - buf));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 组合所有的文件，组成完整的路径</span></span><br><span class="line">        <span class="keyword">if</span>(<span class="built_in">strlen</span>(de.name) == <span class="number">0</span> || <span class="built_in">strcmp</span>(de.name, <span class="string">&quot;.&quot;</span>) == <span class="number">0</span> || <span class="built_in">strcmp</span>(de.name, <span class="string">&quot;..&quot;</span>) == <span class="number">0</span>)&#123;</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        *cur_p++ = <span class="string">&#x27;/&#x27;</span>;</span><br><span class="line">        </span><br><span class="line">        <span class="type">char</span> *p = cur_p;</span><br><span class="line">        <span class="type">char</span> *q = de.name;</span><br><span class="line">        <span class="keyword">while</span>(*q)&#123;</span><br><span class="line">            *p++ = *q++;</span><br><span class="line">        &#125;</span><br><span class="line">        cur_p = p;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 名字可以匹配上</span></span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">strcmp</span>(name, de.name))</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;%s\n&quot;</span>, buf);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 遍历文件夹</span></span><br><span class="line">        <span class="keyword">if</span> (stat(buf, &amp;st) &lt; <span class="number">0</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;find: cannot stat %s\n&quot;</span>, buf);</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (st.type == T_DIR)</span><br><span class="line">        &#123;</span><br><span class="line">            find(buf, name, cur_p);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    close(fd);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (argc != <span class="number">3</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="built_in">fprintf</span>(<span class="number">2</span>, <span class="string">&quot;Usage: find path name\n&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> buf[BUF_SIZE];</span><br><span class="line">    <span class="built_in">memset</span>(buf, <span class="number">0</span>, BUF_SIZE);</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> *p = buf;</span><br><span class="line">    <span class="type">char</span> *q = argv[<span class="number">1</span>];</span><br><span class="line">    <span class="keyword">while</span>(*q)&#123;</span><br><span class="line">        *p++ = *q++;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    find(buf, argv[<span class="number">2</span>], p);</span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>知识点扩展：</strong></p>
+<p><strong>XV6 文件系统结构：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">+------------------+</span><br><span class="line">|    Superblock    |  文件系统元数据</span><br><span class="line">+------------------+</span><br><span class="line">| Log blocks       |  日志（用于崩溃恢复）</span><br><span class="line">+------------------+</span><br><span class="line">| Inode blocks     |  inode 数据（文件元数据）</span><br><span class="line">+------------------+</span><br><span class="line">| Free bit map     |  空闲块位图</span><br><span class="line">+------------------+</span><br><span class="line">| Data blocks      |  实际数据</span><br><span class="line">+------------------+</span><br></pre></td></tr></table></figure>
+
+<p><strong>目录项结构（struct dirent）：</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">dirent</span> &#123;</span></span><br><span class="line">    ushort inum;     <span class="comment">// inode 号</span></span><br><span class="line">    <span class="type">char</span> name[DIRSIZ]; <span class="comment">// 文件名（固定 14 字节）</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么跳过 “.” 和 “..”？</strong></p>
+<table>
+<thead>
+<tr>
+<th>目录项</th>
+<th>含义</th>
+<th>跳过原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.</code></td>
+<td>当前目录</td>
+<td>会导致无限递归</td>
+</tr>
+<tr>
+<td><code>..</code></td>
+<td>父目录</td>
+<td>会向上遍历，可能导致死循环</td>
+</tr>
+<tr>
+<td>空名字</td>
+<td>未使用的目录项</td>
+<td>无效数据</td>
+</tr>
+</tbody></table>
+<p><strong>递归遍历过程：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">find &quot;.&quot; &quot;mkfs&quot;</span><br><span class="line">├── . (跳过)</span><br><span class="line">├── .. (跳过)</span><br><span class="line">├── .git/</span><br><span class="line">│   ├── ... (递归)</span><br><span class="line">├── kernel/</span><br><span class="line">│   ├── fs.c (不匹配)</span><br><span class="line">│   └── ...</span><br><span class="line">├── user/</span><br><span class="line">│   ├── mkfs.c (匹配！输出 ./user/mkfs.c)</span><br><span class="line">│   └── ...</span><br><span class="line">└── ...</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="5-xargs"><a href="#5-xargs" class="headerlink" title="5. xargs"></a>5. xargs</h3><p><strong>实验目标：</strong> 实现 <code>xargs</code> 命令，从标准输入读取参数并执行命令。</p>
+<p><strong>涉及文件：</strong></p>
+<ul>
+<li><code>user/xargs.c</code> - 解析输入，执行命令</li>
+</ul>
+<h5 id="1-第一次解法（有缺陷）"><a href="#1-第一次解法（有缺陷）" class="headerlink" title="1. 第一次解法（有缺陷）"></a>1. 第一次解法（有缺陷）</h5><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/param.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/types.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;user/user.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span>&#123;</span><br><span class="line">    <span class="type">char</span> buf[<span class="number">1024</span>];</span><br><span class="line">    <span class="built_in">memset</span>(buf,<span class="number">0</span>,<span class="number">1024</span>);</span><br><span class="line">    <span class="type">char</span> *argv2[MAXARG];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>; i&lt;argc<span class="number">-1</span>; ++i)&#123;</span><br><span class="line">        argv2[i] = argv[i+<span class="number">1</span>];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 读取命令行到 buf 中</span></span><br><span class="line">    <span class="type">int</span> char_count = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> arg_count = argc - <span class="number">1</span>;</span><br><span class="line">    argv2[arg_count++] = buf;</span><br><span class="line">    <span class="keyword">while</span>(read(<span class="number">0</span>, buf+char_count, <span class="number">1</span>))&#123;</span><br><span class="line">        <span class="keyword">if</span>(buf[char_count] == <span class="string">&#x27; &#x27;</span>)&#123;</span><br><span class="line">            buf[char_count] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">            argv2[arg_count++] = buf + char_count+<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        char_count++;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> pid = fork();</span><br><span class="line">    <span class="keyword">if</span>(pid &lt; <span class="number">0</span>)&#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;fork() failed\n&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span>(pid == <span class="number">0</span>)&#123;</span><br><span class="line">        exec(argv2[<span class="number">0</span>], argv2);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span>&#123;</span><br><span class="line">        wait(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>缺陷分析：</strong></p>
+<p>这样是有缺陷的，因为这样是相当于把 xargs 之前的所有内容，当作一个整体给后面的命令。举个例子：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> a b c | xargs grep hello    <span class="comment"># 相当于 grep hello a b c</span></span><br><span class="line"><span class="comment"># 而实际的 xargs 的作用是这样的</span></span><br><span class="line">grep hello a  -&gt;   grep hello b     -&gt;  grep hello c</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题原因：</strong></p>
+<ul>
+<li>按空格分割，但没有多次执行命令</li>
+<li>所有输入被当作一次命令的参数</li>
+</ul>
+<h5 id="2-第二次解法：按行执行"><a href="#2-第二次解法：按行执行" class="headerlink" title="2. 第二次解法：按行执行"></a>2. 第二次解法：按行执行</h5><p>正确的实现应该：</p>
+<ol>
+<li><p>按行读取输入（而不是按空格）</p>
+</li>
+<li><p>每行构建完整的参数列表</p>
+</li>
+<li><p>每行执行一次命令</p>
+<p>代码为：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/param.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;kernel/types.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;user/user.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span>&#123;</span><br><span class="line">    <span class="type">char</span> buf[<span class="number">1024</span>];</span><br><span class="line">    <span class="built_in">memset</span>(buf,<span class="number">0</span>,<span class="number">1024</span>);</span><br><span class="line">    <span class="type">char</span> *argv2[MAXARG];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>; i&lt;argc<span class="number">-1</span>; ++i)&#123;</span><br><span class="line">        argv2[i] = argv[i+<span class="number">1</span>];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 读取命令行到buf中</span></span><br><span class="line">    <span class="type">int</span> char_count = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> arg_count = argc - <span class="number">1</span>;</span><br><span class="line">    argv2[arg_count++] = buf;</span><br><span class="line">    <span class="keyword">while</span> (read(<span class="number">0</span>, buf + char_count, <span class="number">1</span>))</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span> (buf[char_count] == <span class="string">&#x27; &#x27;</span>)&#123;</span><br><span class="line">            buf[char_count] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">            argv2[arg_count++] = buf + char_count + <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (buf[char_count] == <span class="string">&#x27;\n&#x27;</span>)&#123;</span><br><span class="line">            buf[char_count] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">            argv2[arg_count + <span class="number">1</span>] = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">            <span class="type">int</span> pid = fork();</span><br><span class="line">            <span class="keyword">if</span> (pid &lt; <span class="number">0</span>)</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="built_in">printf</span>(<span class="string">&quot;fork() failed\n&quot;</span>);</span><br><span class="line">                <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (pid == <span class="number">0</span>)</span><br><span class="line">            &#123;</span><br><span class="line">                exec(argv2[<span class="number">0</span>], argv2);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">            &#123;</span><br><span class="line">                wait(<span class="number">0</span>);</span><br><span class="line">                char_count = <span class="number">0</span>;</span><br><span class="line">                arg_count = argc<span class="number">-1</span>;</span><br><span class="line">                argv2[arg_count++] = buf;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        char_count++;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p><strong>测试通过：</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">sleep, no arguments: OK (2.4s) </span><br><span class="line">== Test sleep, returns == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">sleep, returns: OK (0.9s) </span><br><span class="line">== Test sleep, makes syscall == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">sleep, makes syscall: OK (1.0s) </span><br><span class="line">== Test pingpong == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">pingpong: OK (1.2s) </span><br><span class="line">== Test primes == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">primes: OK (1.2s) </span><br><span class="line">== Test find, in current directory == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">find, in current directory: OK (0.8s) </span><br><span class="line">== Test find, in sub-directory == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">find, in sub-directory: OK (0.9s) </span><br><span class="line">== Test find, recursive == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">find, recursive: OK (1.4s) </span><br><span class="line">== Test xargs == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">xargs: OK (1.6s) </span><br><span class="line">== Test xargs, multi-line echo == </span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">make qemu-gdb</span></span><br><span class="line">xargs, multi-line echo: OK (0.3s) </span><br><span class="line">== Test time == </span><br><span class="line">time: OK </span><br><span class="line">Score: 110/110</span><br></pre></td></tr></table></figure>
+
+<p><strong>知识点扩展：</strong></p>
+<p><strong>exec() 系统调用：</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">exec</span><span class="params">(<span class="type">char</span> *path, <span class="type">char</span> **argv)</span>;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>用新的程序替换当前进程的内存空间</li>
+<li>文件描述符保持打开（除了被显式关闭的）</li>
+<li>不会返回，除非出错</li>
+</ul>
+<hr>
+<h3 id="Lab1-收工"><a href="#Lab1-收工" class="headerlink" title="Lab1 收工"></a>Lab1 收工</h3></article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>Author: </span><span class="post-copyright-info"><a href="https://q1375854021.github.io/QQBlog">QQLaoban</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>Link: </span><span class="post-copyright-info"><a href="https://q1375854021.github.io/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab1-utilities/">https://q1375854021.github.io/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab1-utilities/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>Copyright Notice: </span><span class="post-copyright-info">All articles on this blog are licensed under <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> unless otherwise stated.</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/QQBlog/tags/XV6-2024/">XV6-2024</a></div><div class="post-share"><div class="social-share" data-image="/QQBlog/img/butterfly-icon.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab-Tools/" title="XV6实验系列_Lab_Tools"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">Next</div><div class="info-item-2">XV6实验系列_Lab_Tools</div></div><div class="info-2"><div class="info-item-1">Tools 笔记 1. QEMU 安装与版本问题版本要求对比：    项目 我的版本 官方要求版本    QEMU 6.2.0 → 7.2.0 7.2.0   问题描述：最初使用 apt 安装的 QEMU 版本是 6.2.0，但 XV6 官方要求 7.2.0 版本。 为什么 XV6 对 QEMU 版本有要求？ XV6 操作系统会用到 RISC-V 架构的一些较新的扩展特性，这些特性需要 QEMU 模拟器提供支持。主要涉及：  sstc 扩展 (Supervisor Software Timer Counter)：允许 S 模式直接访问定时器 其他 RISC-V 特权模式扩展：新版 RISC-V 规范定义的 CSR 寄存器和中断处理机制  如果 QEMU 版本过低，不支持这些扩展，会导致：  时钟中断无法正常工作 系统启动后卡死，无法进入 shell 某些 CSR 寄存器读写失败  解决方案：由于 apt 源中的 QEMU 版本较旧（6.2.0），需要从源码编译安装 7.2.0 版本。 从源码编译 QEMU 简要步骤： 1234567891011121314151617# 1. 下...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>Related Articles</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab-Tools/" title="XV6实验系列_Lab_Tools"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-01</div><div class="info-item-2">XV6实验系列_Lab_Tools</div></div><div class="info-2"><div class="info-item-1">Tools 笔记 1. QEMU 安装与版本问题版本要求对比：    项目 我的版本 官方要求版本    QEMU 6.2.0 → 7.2.0 7.2.0   问题描述：最初使用 apt 安装的 QEMU 版本是 6.2.0，但 XV6 官方要求 7.2.0 版本。 为什么 XV6 对 QEMU 版本有要求？ XV6 操作系统会用到 RISC-V 架构的一些较新的扩展特性，这些特性需要 QEMU 模拟器提供支持。主要涉及：  sstc 扩展 (Supervisor Software Timer Counter)：允许 S 模式直接访问定时器 其他 RISC-V 特权模式扩展：新版 RISC-V 规范定义的 CSR 寄存器和中断处理机制  如果 QEMU 版本过低，不支持这些扩展，会导致：  时钟中断无法正常工作 系统启动后卡死，无法进入 shell 某些 CSR 寄存器读写失败  解决方案：由于 apt 源中的 QEMU 版本较旧（6.2.0），需要从源码编译安装 7.2.0 版本。 从源码编译 QEMU 简要步骤： 1234567891011121314151617# 1. 下...</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> Comments</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/QQBlog/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/QQBlog/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">QQLaoban</div><div class="author-info-description"></div><div class="site-data"><a href="/QQBlog/archives/"><div class="headline">Articles</div><div class="length-num">3</div></a><a href="/QQBlog/tags/"><div class="headline">Tags</div><div class="length-num">1</div></a><a href="/QQBlog/categories/"><div class="headline">Categories</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/q1375854021"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>Announcement</span></div><div class="announcement_content">This is my Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>Contents</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Lab1-Util-%E7%AC%94%E8%AE%B0"><span class="toc-number">1.</span> <span class="toc-text">Lab1_Util 笔记</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-Boot-xv6-easy"><span class="toc-number">1.0.1.</span> <span class="toc-text">1. Boot xv6(easy)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-make-qemu-%E6%8A%A5%E9%94%99%EF%BC%9ACouldn%E2%80%99t-find-a-riscv64-version-of-GCC-binutils"><span class="toc-number">1.0.1.0.1.</span> <span class="toc-text">1. make qemu 报错：Couldn’t find a riscv64 version of GCC&#x2F;binutils</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-%E7%BC%96%E8%AF%91%E5%8D%A1%E6%AD%BB%EF%BC%9A%E6%B2%A1%E6%9C%89%E5%87%BA%E7%8E%B0-%E7%AC%A6%E5%8F%B7"><span class="toc-number">1.0.1.0.2.</span> <span class="toc-text">2. 编译卡死：没有出现 $ 符号</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-sleep-easy"><span class="toc-number">1.0.2.</span> <span class="toc-text">2. sleep(easy)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-sys-sleep-%E7%9A%84-sleep-ticks-tickslock-%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.0.2.0.1.</span> <span class="toc-text">1. sys_sleep 的 sleep(&amp;ticks, &amp;tickslock) 实现</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-%E6%97%B6%E9%92%9F%E4%B8%AD%E6%96%AD%E9%A2%91%E7%8E%87"><span class="toc-number">1.0.2.0.2.</span> <span class="toc-text">2. 时钟中断频率</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-primes"><span class="toc-number">1.0.3.</span> <span class="toc-text">3. primes</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.0.3.0.1.</span> <span class="toc-text">代码实现</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E5%88%86%E6%9E%90"><span class="toc-number">1.0.3.0.2.</span> <span class="toc-text">问题分析</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-find"><span class="toc-number">1.0.4.</span> <span class="toc-text">4. find</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0-1"><span class="toc-number">1.0.4.0.1.</span> <span class="toc-text">代码实现</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-xargs"><span class="toc-number">1.0.5.</span> <span class="toc-text">5. xargs</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-%E7%AC%AC%E4%B8%80%E6%AC%A1%E8%A7%A3%E6%B3%95%EF%BC%88%E6%9C%89%E7%BC%BA%E9%99%B7%EF%BC%89"><span class="toc-number">1.0.5.0.1.</span> <span class="toc-text">1. 第一次解法（有缺陷）</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-%E7%AC%AC%E4%BA%8C%E6%AC%A1%E8%A7%A3%E6%B3%95%EF%BC%9A%E6%8C%89%E8%A1%8C%E6%89%A7%E8%A1%8C"><span class="toc-number">1.0.5.0.2.</span> <span class="toc-text">2. 第二次解法：按行执行</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Lab1-%E6%94%B6%E5%B7%A5"><span class="toc-number">1.0.6.</span> <span class="toc-text">Lab1 收工</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>Recent Posts</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab1-utilities/" title="XV6实验系列_Lab1_utilities">XV6实验系列_Lab1_utilities</a><time datetime="2026-04-01T15:21:30.000Z" title="Created 2026-04-01 23:21:30">2026-04-01</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab-Tools/" title="XV6实验系列_Lab_Tools">XV6实验系列_Lab_Tools</a><time datetime="2026-04-01T15:20:44.000Z" title="Created 2026-04-01 23:20:44">2026-04-01</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/03/16/My-First-Blog/" title="Welcome To QQBlog">Welcome To QQBlog</a><time datetime="2026-03-16T03:26:40.000Z" title="Created 2026-03-16 11:26:40">2026-03-16</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By QQLaoban</span><span class="framework-info"><span>Framework </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>Theme </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="Reading Mode"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="Toggle Between Light and Dark Mode"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="Toggle Between Single-column and Double-column"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="Settings"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="Table of Contents"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="Scroll to Comments"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="Back to Top"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/QQBlog/js/utils.js?v=5.5.4"></script><script src="/QQBlog/js/main.js?v=5.5.4"></script><div class="js-pjax"><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'q1375854021/QQBlog',
+      'data-repo-id': 'R_kgDORoHzLw',
+      'data-category-id': 'DIC_kwDORoHzL84C4f2N',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
