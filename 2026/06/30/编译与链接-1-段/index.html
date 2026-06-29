@@ -1,0 +1,1341 @@
+<!DOCTYPE html><html lang="en" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>编译与链接-1-段 | Hexo</title><meta name="author" content="QQLaoban"><meta name="copyright" content="QQLaoban"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="ELF 段（Section）完整学习笔记 本文档以 readelf -S libcompile_learn.so 的输出为线索，系统梳理 ELF 二进制文件中各段（Section）的底层原理、数据结构与运行时行为。全文按照 “从元信息到代码数据，从静态链接到动态运行，从异常处理到调试信息” 的逻辑链路重新编排，并在关键节点补充编译期与运行期的深度剖析。   一、ELF 文件基础与元信息段[0] N">
+<meta property="og:type" content="article">
+<meta property="og:title" content="编译与链接-1-段">
+<meta property="og:url" content="https://q1375854021.github.io/QQBlog/2026/06/30/%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5-1-%E6%AE%B5/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="ELF 段（Section）完整学习笔记 本文档以 readelf -S libcompile_learn.so 的输出为线索，系统梳理 ELF 二进制文件中各段（Section）的底层原理、数据结构与运行时行为。全文按照 “从元信息到代码数据，从静态链接到动态运行，从异常处理到调试信息” 的逻辑链路重新编排，并在关键节点补充编译期与运行期的深度剖析。   一、ELF 文件基础与元信息段[0] N">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://q1375854021.github.io/QQBlog/img/butterfly-icon.png">
+<meta property="article:published_time" content="2026-06-29T16:56:23.000Z">
+<meta property="article:modified_time" content="2026-06-29T16:56:28.673Z">
+<meta property="article:author" content="QQLaoban">
+<meta property="article:tag" content="XV6-2024">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://q1375854021.github.io/QQBlog/img/butterfly-icon.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "编译与链接-1-段",
+  "url": "https://q1375854021.github.io/QQBlog/2026/06/30/%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5-1-%E6%AE%B5/",
+  "image": "https://q1375854021.github.io/QQBlog/img/butterfly-icon.png",
+  "datePublished": "2026-06-29T16:56:23.000Z",
+  "dateModified": "2026-06-29T16:56:28.673Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "QQLaoban",
+      "url": "https://q1375854021.github.io/QQBlog"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/QQBlog/img/favicon.png"><link rel="canonical" href="https://q1375854021.github.io/QQBlog/2026/06/30/%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5-1-%E6%AE%B5/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/QQBlog/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/QQBlog/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: 'Copy Successful',
+    error: 'Copy Failed',
+    noSupport: 'Browser Not Supported'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: 'Just now',
+    min: 'minutes ago',
+    hour: 'hours ago',
+    day: 'days ago',
+    month: 'months ago'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: 'Load More'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '编译与链接-1-段',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/QQBlog/"><span class="site-name">Hexo</span></a><a class="nav-page-title" href="/QQBlog/"><span class="site-name">编译与链接-1-段</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  Back to Home</span></span></a></span><div id="menus"></div></nav><div id="post-info"><h1 class="post-title">编译与链接-1-段</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">Created</span><time class="post-meta-date-created" datetime="2026-06-29T16:56:23.000Z" title="Created 2026-06-30 00:56:23">2026-06-30</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">Updated</span><time class="post-meta-date-updated" datetime="2026-06-29T16:56:28.673Z" title="Updated 2026-06-30 00:56:28">2026-06-30</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">Post Views:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="ELF-段（Section）完整学习笔记"><a href="#ELF-段（Section）完整学习笔记" class="headerlink" title="ELF 段（Section）完整学习笔记"></a>ELF 段（Section）完整学习笔记</h1><blockquote>
+<p>本文档以 <code>readelf -S libcompile_learn.so</code> 的输出为线索，系统梳理 ELF 二进制文件中各段（Section）的底层原理、数据结构与运行时行为。全文按照 <strong>“从元信息到代码数据，从静态链接到动态运行，从异常处理到调试信息”</strong> 的逻辑链路重新编排，并在关键节点补充编译期与运行期的深度剖析。</p>
+</blockquote>
+<hr>
+<h2 id="一、ELF-文件基础与元信息段"><a href="#一、ELF-文件基础与元信息段" class="headerlink" title="一、ELF 文件基础与元信息段"></a>一、ELF 文件基础与元信息段</h2><h3 id="0-NULL-段（哨兵段）"><a href="#0-NULL-段（哨兵段）" class="headerlink" title="[0] NULL 段（哨兵段）"></a>[0] NULL 段（哨兵段）</h3><p>NULL 段是所有 ELF 文件的 &#x3D;&#x3D;零号锚点&#x3D;&#x3D;，其索引号为 0，所有字段被刻意清零。</p>
+<p><strong>设计意图：</strong></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>哨兵语义</strong></td>
+<td><code>sh_type == SHT_NULL</code> 在所有条件判断中天然为假，作为”无段”的有效返回值</td>
+</tr>
+<tr>
+<td><strong>边界安全</strong></td>
+<td>防止索引越界——任何对 <code>sections[0]</code> 的访问都不会产生未定义行为</td>
+</tr>
+<tr>
+<td><strong>溢出收容</strong></td>
+<td>当段数量超过 ELF 头部 <code>e_shnum</code> 字段的编码上限时，扩展计数会被存入 NULL 段的 <code>sh_size</code> 与 <code>sh_link</code> 字段</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>&#x3D;&#x3D;NULL 段并非”空无一物”，而是 ELF 格式设计中的防御性编程典范。&#x3D;&#x3D;</p>
+</blockquote>
+<hr>
+<h3 id="29-comment-—-工具链指纹段"><a href="#29-comment-—-工具链指纹段" class="headerlink" title="[29] .comment — 工具链指纹段"></a>[29] <code>.comment</code> — 工具链指纹段</h3><p><code>.comment</code> 存储一串 ASCII 字符串，记录了生成该二进制文件的完整工具链信息：</p>
+<ul>
+<li><strong>编译器版本</strong>：如 <code>GCC: (GNU) 12.2.0</code></li>
+<li><strong>编译选项</strong>：部分关键编译标志</li>
+<li><strong>工具标识</strong>：若使用 Clang、ICC 等非 GCC 编译器，此处会留下对应的厂商指纹</li>
+</ul>
+<p><strong>用途：</strong></p>
+<ol>
+<li><strong>版本审计</strong>：在排查 ABI 不兼容导致的诡异崩溃时，通过 <code>.comment</code> 可快速确认构建所用的编译器版本</li>
+<li><strong>版权声明</strong>：某些专有软件会在此写入版权标识</li>
+</ol>
+<blockquote>
+<p><code>.comment</code> 段在运行时完全不被需要，可以通过 <code>strip</code> 命令安全删除以缩减二进制体积。</p>
+</blockquote>
+<hr>
+<h3 id="31-shstrtab-—-段名字符串表"><a href="#31-shstrtab-—-段名字符串表" class="headerlink" title="[31] .shstrtab — 段名字符串表"></a>[31] <code>.shstrtab</code> — 段名字符串表</h3><p><strong>核心问题</strong>：用 <code>readelf -S</code> 看到的人类可读段名（如 <code>.text</code>、<code>.data</code>）并非直接存储在段头部结构体中。</p>
+<p><strong>原因</strong>：段名长度不定，若将字符串直接嵌入 <code>Elf64_Shdr</code> 结构体，会破坏其固定大小（64 字节），导致无法通过数组下标进行 $O(1)$ 索引。</p>
+<p><strong>解决方案</strong>：</p>
+<ul>
+<li><code>.shstrtab</code> 将所有段的名字以 <code>\0</code> 分隔连续堆叠存储</li>
+<li>每个 <code>Elf64_Shdr</code> 中仅保存一个 <code>sh_name</code> 字段（整型偏移量），指向 <code>.shstrtab</code> 中的对应位置</li>
+</ul>
+<blockquote>
+<p>&#x3D;&#x3D;固定长度结构体 + 变长数据集中存储 &#x3D;&#x3D; 是二进制格式设计中的通用模式，<code>.dynstr</code> 与 <code>.strtab</code> 采用了相同策略。&#x3D;&#x3D;</p>
+</blockquote>
+<hr>
+<h3 id="32-interp-—-动态链接器路径段"><a href="#32-interp-—-动态链接器路径段" class="headerlink" title="[32] .interp — 动态链接器路径段"></a>[32] <code>.interp</code> — 动态链接器路径段</h3><p><code>.interp</code> 存储动态链接器的绝对路径（如 <code>/lib64/ld-linux-x86-64.so.2</code>）。</p>
+<p><strong>运行时行为：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">内核加载 ELF → 解析 Program Header → 发现 PT_INTERP 段</span><br><span class="line">             → 读取 .interp 中的路径</span><br><span class="line">             → 将动态链接器 mmap 到进程地址空间</span><br><span class="line">             → 将控制权移交给动态链接器（而非直接执行 main）</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>&#x3D;&#x3D;<code>.interp</code> 的存在标记了该 ELF 是”动态链接可执行文件”。若缺失且引用了外部符号，内核将直接拒绝加载。&#x3D;&#x3D;</p>
+</blockquote>
+<hr>
+<h2 id="二、Note-段：安全、身份与兼容性元数据"><a href="#二、Note-段：安全、身份与兼容性元数据" class="headerlink" title="二、Note 段：安全、身份与兼容性元数据"></a>二、Note 段：安全、身份与兼容性元数据</h2><h3 id="1-note-gnu-property-—-CPU-安全特性声明段"><a href="#1-note-gnu-property-—-CPU-安全特性声明段" class="headerlink" title="[1] .note.gnu.property — CPU 安全特性声明段"></a>[1] <code>.note.gnu.property</code> — CPU 安全特性声明段</h3><p>这是现代 Linux 系统（尤其是启用了 Intel&#x2F;AMD 硬件级安全保护时）至关重要的 &#x3D;&#x3D;安全体检报告段&#x3D;&#x3D;。</p>
+<p><strong>背景</strong>：现代 CPU（Intel 第 11 代起、AMD 对应代际）引入了 **CET (Control-flow Enforcement Technology，控制流强制技术)**，专门防御 ROP（返回导向编程）和 COP&#x2F;JOP（跳转导向编程）攻击。</p>
+<p><strong>存储内容</strong>：该段以二进制位（Bit）编码以下信息：</p>
+<blockquote>
+<p>“本共享库在编译时已完整支持 <strong>IBT（间接跳转追踪）</strong> 与 <strong>SHSTK（影子栈）</strong> 硬件防御，请内核与动态链接器放心开启硬件加速拦截。”</p>
+</blockquote>
+<p><strong>IBT (Indirect Branch Tracking) 原理：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">CPU 执行间接跳转指令（如 jmp reg 或 call mem）</span><br><span class="line">  → 硬件状态机从 IDLE 切换到 WAIT_FOR_ENDBRANCH</span><br><span class="line">  → 强制要求下一条被执行的指令必须是 ENDBR64（合法目标流标记指令）</span><br><span class="line">  → 若目标地址首条指令不是 ENDBR64（例如 GOT 表被篡改指向恶意代码）</span><br><span class="line">  → CPU 硬件立即触发 #CP (Control Protection Exception) 异常</span><br><span class="line">  → 内核捕获后直接终止进程</span><br></pre></td></tr></table></figure>
+
+<p><strong>SHSTK (Shadow Stack) 原理：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">程序执行 call 指令：</span><br><span class="line">  → CPU 将返回地址同时压入两类栈：</span><br><span class="line">    1. 普通用户栈 (Data Stack) — 可被 mov 等指令读写</span><br><span class="line">    2. 影子栈   (Shadow Stack)  — 受页表属性保护，mov 指令无法触碰</span><br><span class="line"></span><br><span class="line">程序执行 ret 指令：</span><br><span class="line">  → CPU 分别从普通栈和影子栈弹出返回地址</span><br><span class="line">  → 硬件在微架构层面对二者进行实时比对</span><br><span class="line">  → 若不一致（普通栈返回地址因缓冲区溢出被篡改）</span><br><span class="line">  → CPU 立即抛出 #CP 异常，硬性阻断非法函数返回跳转</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>&#x3D;&#x3D;CET 是通过硬件 + 编译器 + 内核三方协同实现的纵深防御体系。<code>.note.gnu.property</code> 是编译器的”承诺书”，告知系统该二进制已具备相应的代码形态（如所有间接跳转目标均以 <code>ENDBR64</code> 开头）。&#x3D;&#x3D;</p>
+</blockquote>
+<hr>
+<h3 id="2-note-gnu-build-id-—-二进制数字身份证"><a href="#2-note-gnu-build-id-—-二进制数字身份证" class="headerlink" title="[2] .note.gnu.build-id — 二进制数字身份证"></a>[2] <code>.note.gnu.build-id</code> — 二进制数字身份证</h3><p>该段存储全球唯一的 &#x3D;&#x3D;二进制指纹&#x3D;&#x3D;。</p>
+<p><strong>生成过程：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">链接器在生成 ELF 文件时</span><br><span class="line">  → 将文件内容 + 时间戳等作为输入</span><br><span class="line">  → 通过加密哈希算法（通常为 SHA-1）计算 160 位哈希值</span><br><span class="line">  → 将哈希值刻入 .note.gnu.build-id 段</span><br></pre></td></tr></table></figure>
+
+<p><strong>查看方式</strong>：<code>readelf -n libcompile_learn.so</code></p>
+<p><strong>应用场景：</strong></p>
+<ul>
+<li><strong>调试匹配</strong>：GDB 通过 Build ID 将 core dump 与对应的调试符号自动关联</li>
+<li><strong>身份验证</strong>：确保运行时的 <code>.so</code> 与编译时的 <code>.so</code> 完全一致</li>
+<li><strong>完整性校验</strong>：检测二进制是否被篡改或损坏</li>
+</ul>
+<hr>
+<h3 id="39-note-ABI-tag-—-ABI-兼容性标签"><a href="#39-note-ABI-tag-—-ABI-兼容性标签" class="headerlink" title="[39] .note.ABI-tag — ABI 兼容性标签"></a>[39] <code>.note.ABI-tag</code> — ABI 兼容性标签</h3><p>记录该二进制文件遵循的 ABI 规范版本信息，供动态链接器在加载时进行兼容性校验。</p>
+<hr>
+<h2 id="三、动态链接核心基础设施"><a href="#三、动态链接核心基础设施" class="headerlink" title="三、动态链接核心基础设施"></a>三、动态链接核心基础设施</h2><h3 id="21-dynamic-—-动态配置清单"><a href="#21-dynamic-—-动态配置清单" class="headerlink" title="[21] .dynamic — 动态配置清单"></a>[21] <code>.dynamic</code> — 动态配置清单</h3><p>若将 ELF 二进制比作一份说明书，<code>.dynamic</code> 就是其中的 &#x3D;&#x3D;动态配置清单&#x3D;&#x3D;——仅在程序加载到内存时，由动态链接器读取解析。</p>
+<p><strong>数据结构</strong>：<code>.dynamic</code> 段由一系列 <code>Elf64_Dyn</code> 结构体组成，每个结构体是一个键值对：</p>
+<table>
+<thead>
+<tr>
+<th>键 (d_tag)</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>DT_NEEDED</code></td>
+<td>依赖的共享库名称（如 <code>libc.so.6</code>）</td>
+</tr>
+<tr>
+<td><code>DT_RPATH</code> &#x2F; <code>DT_RUNPATH</code></td>
+<td>共享库搜索路径</td>
+</tr>
+<tr>
+<td><code>DT_SONAME</code></td>
+<td>本库自身的规范名称</td>
+</tr>
+<tr>
+<td><code>DT_INIT</code> &#x2F; <code>DT_FINI</code></td>
+<td>初始化与清理函数地址</td>
+</tr>
+<tr>
+<td><code>DT_SYMTAB</code> &#x2F; <code>DT_STRTAB</code></td>
+<td>动态符号表及其字符串表地址</td>
+</tr>
+<tr>
+<td><code>DT_PLTGOT</code></td>
+<td><code>.got.plt</code> 段的地址</td>
+</tr>
+</tbody></table>
+<p><strong>运行时加载流程：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">1. 内核加载 ELF，发现其为动态链接 → 启动动态链接器（ld.so）</span><br><span class="line">2. 动态链接器将 .dynamic 段映射到内存</span><br><span class="line">3. 遍历 DT_NEEDED 条目，递归加载所有依赖的共享库</span><br><span class="line">4. 使用 DT_RPATH / DT_RUNPATH（结合 LD_LIBRARY_PATH 等环境变量）搜索库文件</span><br><span class="line">5. 执行重定位（Relocation）：将库函数的实际内存地址填入 PLT/GOT</span><br><span class="line">6. 执行 INIT 段 → 跳转 main()</span><br></pre></td></tr></table></figure>
+
+<p><strong>与 Conda 的关系</strong>：Conda 构建工具扫描包内所有二进制的 <code>.dynamic</code> 段，若发现其依赖了错误的系统库路径，则通过 <code>patchelf</code> 工具修改 <code>DT_RPATH</code>，使其指向 Conda 环境内的隔离路径。</p>
+<hr>
+<h3 id="4-dynsym-—-动态符号表"><a href="#4-dynsym-—-动态符号表" class="headerlink" title="[4] .dynsym — 动态符号表"></a>[4] <code>.dynsym</code> — 动态符号表</h3><p><code>.dynsym</code> 是 &#x3D;&#x3D;给操作系统和动态链接器看的符号表&#x3D;&#x3D;。它是完整符号表 <code>.symtab</code> 的严格子集，仅保留需要跨越库边界的符号：</p>
+<ul>
+<li><strong>导出符号</strong>：本库暴露给其他模块使用的函数&#x2F;变量</li>
+<li><strong>导入符号</strong>：本库引用的外部函数&#x2F;变量</li>
+</ul>
+<p><strong>关键属性</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">段标志包含 A (Alloc)</span><br><span class="line">  → 运行时必须常驻内存</span><br><span class="line">  → strip 操作绝对不能删除（否则程序直接瘫痪）</span><br><span class="line">  → 其内容被映射到进程地址空间供 ld.so 查询</span><br></pre></td></tr></table></figure>
+
+<p><strong>条目结构</strong>：在 64 位系统上，每个 <code>Elf64_Sym</code> 结构体被严格固定为 24 字节，包含：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>大小</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>st_name</code></td>
+<td>4 字节</td>
+<td>符号名在 <code>.dynstr</code> 中的偏移量</td>
+</tr>
+<tr>
+<td><code>st_info</code></td>
+<td>1 字节</td>
+<td>符号类型与绑定属性</td>
+</tr>
+<tr>
+<td><code>st_other</code></td>
+<td>1 字节</td>
+<td>可见性 (Visibility)</td>
+</tr>
+<tr>
+<td><code>st_shndx</code></td>
+<td>2 字节</td>
+<td>所在段的索引</td>
+</tr>
+<tr>
+<td><code>st_value</code></td>
+<td>8 字节</td>
+<td>符号地址或偏移量</td>
+</tr>
+<tr>
+<td><code>st_size</code></td>
+<td>8 字节</td>
+<td>符号占用字节数</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="5-dynstr-—-动态字符串表"><a href="#5-dynstr-—-动态字符串表" class="headerlink" title="[5] .dynstr — 动态字符串表"></a>[5] <code>.dynstr</code> — 动态字符串表</h3><p><strong>设计动机</strong>：<code>Elf64_Sym</code> 固定 24 字节，<code>st_name</code> 仅 4 字节，无法容纳任意长度的符号名。实际上，<code>st_name</code> 并非名字本身，而是一个 &#x3D;&#x3D;指向 <code>.dynstr</code> 的偏移量（坐标）&#x3D;&#x3D;。</p>
+<p><strong>存储模型</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">.dynstr = &quot;\0printf\0malloc\0_Z13cpp_lib_hellov\0...&quot;</span><br><span class="line"></span><br><span class="line">Elf64_Sym&#123; st_name = 1 &#125;  → 指向 &quot;printf&quot;</span><br><span class="line">Elf64_Sym&#123; st_name = 8 &#125;  → 指向 &quot;malloc&quot;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>&#x3D;&#x3D;固定长度记录 + 变长数据池，这是 <code>.symtab/.strtab</code> 以及 <code>.shstrtab</code> 共同遵循的设计范式。&#x3D;&#x3D;</p>
+</blockquote>
+<hr>
+<h3 id="3-gnu-hash-—-GNU-哈希加速索引"><a href="#3-gnu-hash-—-GNU-哈希加速索引" class="headerlink" title="[3] .gnu.hash — GNU 哈希加速索引"></a>[3] <code>.gnu.hash</code> — GNU 哈希加速索引</h3><p>在现代 ELF 动态链接体系中，<code>.gnu.hash</code> 是为 <code>.dynsym</code> 配备的 &#x3D;&#x3D;高性能哈希索引表&#x3D;&#x3D;。</p>
+<p><strong>问题场景</strong>：中型程序加载 50 个 <code>.so</code>，总计 10 万个导出符号。若动态链接器对每个未解析的外部符号都遍历这 10 万个符号做 <code>strcmp</code>，启动延迟将不可接受。</p>
+<p><strong>解决方案</strong>：将查找时间从 $O(N)$ 降至 $O(1)$。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────┐     哈希查找      ┌──────────────┐</span><br><span class="line">│ .gnu.hash   │ ──────────────→  │  .dynsym     │</span><br><span class="line">│ (哈希索引)   │   O(1) 定位候选  │  (动态符号表)  │</span><br><span class="line">└─────────────┘                  └──────────────┘</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>.gnu.hash</code> 使用 Bloom Filter 进行快速否定（立即排除不存在的符号），再通过哈希桶进行精确匹配，极大加速了动态链接的符号解析过程。</p>
+</blockquote>
+<hr>
+<h3 id="6-gnu-version-—-符号版本表"><a href="#6-gnu-version-—-符号版本表" class="headerlink" title="[6] .gnu.version — 符号版本表"></a>[6] <code>.gnu.version</code> — 符号版本表</h3><p>这是 Linux 为解决 &#x3D;&#x3D;动态库升级导致老程序崩溃&#x3D;&#x3D; 而设计的 <strong>符号版本控制机制</strong> 的物理载体。</p>
+<p><strong>经典场景</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">2010 年：你的主程序编译时使用 libc.so.6 的 memcpy（旧版，对内存重叠安全）</span><br><span class="line">2011 年：libc 开发者用新汇编指令重写 memcpy（性能↑，但对内存重叠不再安全）</span><br><span class="line">问题   ：用户升级 libc.so.6 → 老程序调用新版 memcpy → 瞬时崩溃</span><br></pre></td></tr></table></figure>
+
+<p><strong>Linux 的解决方案（对比 Windows）：</strong></p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>Windows</th>
+<th>Linux</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>做法</td>
+<td>系统保留多版本 DLL（<code>msvcr71.dll</code>, <code>msvcr100.dll</code>, …）</td>
+<td>同一个 <code>libc.so.6</code> 内同时存在多个版本符号</td>
+</tr>
+<tr>
+<td>符号形态</td>
+<td>不同文件</td>
+<td><code>memcpy@GLIBC_2.2.5</code> 与 <code>memcpy@GLIBC_2.14</code> 共存于同一文件</td>
+</tr>
+<tr>
+<td>判定机制</td>
+<td>链接时指定 DLL 文件名</td>
+<td><code>.gnu.version</code> 记录版本需求 → 动态链接器运行时匹配</td>
+</tr>
+</tbody></table>
+<p><strong>数据结构</strong>：<code>.gnu.version</code> 是一个 &#x3D;&#x3D;影子数组&#x3D;&#x3D;，与 <code>.dynsym</code> 逐条一一对应，每条仅存一个版本代号（如 <code>2</code>、<code>3</code>），而非完整版本字符串。完整版本名存储在 <code>.gnu.version_r</code> 或 <code>.gnu.version_d</code> 中。</p>
+<hr>
+<h3 id="7-gnu-version-r-—-版本需求表"><a href="#7-gnu-version-r-—-版本需求表" class="headerlink" title="[7] .gnu.version_r — 版本需求表"></a>[7] <code>.gnu.version_r</code> — 版本需求表</h3><p><code>r</code> 代表 &#x3D;&#x3D;Requirements（需求）&#x3D;&#x3D;。</p>
+<p><strong>经典报错信息</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">error while loading shared libraries:</span><br><span class="line">/lib64/libc.so.6: version &#x27;GLIBC_2.14&#x27; not found</span><br><span class="line">(required by ./my_program)</span><br></pre></td></tr></table></figure>
+
+<p><strong>运行时匹配流程</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">动态链接器读取主程序的 .gnu.version_r</span><br><span class="line">  → 发现需要 GLIBC_2.14</span><br><span class="line">  → 检查系统 libc.so.6 的 .gnu.version_d（Definitions，定义表）</span><br><span class="line">  → 确认系统 libc.so.6 声明了该版本 → 匹配成功，放行</span><br><span class="line">  → 若版本缺失 → 输出上述错误，拒绝加载</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>.gnu.version_d</code> 为何在当前 <code>.so</code> 中找不到？</strong></p>
+<p>链接器默认将所有导出符号归为”无版本（Local &#x2F; Global Default）”，自然无需生成版本定义表。要使其现身，需创建链接脚本 <code>version.map</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">MYLIB_1.0 &#123;</span><br><span class="line">    global: _Z13cpp_lib_hellov;</span><br><span class="line">    local: *;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="实战：同一共享库提供两个版本的-API"><a href="#实战：同一共享库提供两个版本的-API" class="headerlink" title="实战：同一共享库提供两个版本的 API"></a>实战：同一共享库提供两个版本的 API</h3><p>以下演示如何让一个 <code>.so</code> 同时导出 <code>hello@MYLIB_1.0</code> 和 <code>hello@MYLIB_2.0</code>。</p>
+<p><strong>第一步：编写符号别名（C++ 语言不允许函数重名，需用 <code>__asm__</code> 伪指令）</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 真正的函数逻辑</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">hello_v2</span><span class="params">()</span> </span>&#123; std::cout &lt;&lt; <span class="string">&quot;Version 2.0&quot;</span> &lt;&lt; std::endl; &#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">hello_v1</span><span class="params">()</span> </span>&#123; std::cout &lt;&lt; <span class="string">&quot;Version 1.0&quot;</span> &lt;&lt; std::endl; &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 符号别名：将 hello_v1 绑定到 hello@MYLIB_1.0</span></span><br><span class="line">__asm__(<span class="string">&quot;.symver hello_v1, hello@MYLIB_1.0&quot;</span>);</span><br><span class="line"><span class="comment">// 符号别名：将 hello_v2 绑定到 hello@@MYLIB_2.0（双 @ 表示默认版本）</span></span><br><span class="line">__asm__(<span class="string">&quot;.symver hello_v2, hello@@MYLIB_2.0&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p><strong>第二步：编写版本链接脚本 <code>version.map</code></strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">MYLIB_1.0 &#123;</span><br><span class="line">    global:</span><br><span class="line">        hello;</span><br><span class="line">&#125;;</span><br><span class="line">MYLIB_2.0 &#123;</span><br><span class="line">    global:</span><br><span class="line">        hello;</span><br><span class="line">&#125; MYLIB_1.0;  # 2.0 继承 1.0 的所有符号</span><br></pre></td></tr></table></figure>
+
+<p><strong>第三步：编译</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -shared -fPIC my_lib.cpp -Wl,--version-script=version.map -o libmy_lib.so</span><br></pre></td></tr></table></figure>
+
+<p><strong>符号解析逻辑</strong>：</p>
+<ul>
+<li>请求 <code>hello@MYLIB_1.0</code> → 链接器通过 <code>.gnu.version_d</code> 找到旧版地址</li>
+<li>未指定版本（或请求 <code>hello</code>） → 链接器根据 <code>@@</code> 自动匹配 <code>MYLIB_2.0</code> 对应的默认地址</li>
+</ul>
+<hr>
+<h3 id="实战：主程序强制绑定指定版本"><a href="#实战：主程序强制绑定指定版本" class="headerlink" title="实战：主程序强制绑定指定版本"></a>实战：主程序强制绑定指定版本</h3><p><strong>方法一：链接期钉死版本（静态绑定）</strong></p>
+<p>这是最稳妥的方法——在链接主程序时使用映射文件限制符号绑定。</p>
+<p><code>link.map</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    global:</span><br><span class="line">        hello@MYLIB_1.0;  # 强制要求绑定到 1.0 版本</span><br><span class="line">    local: *;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>此方法修改的是二进制文件中存储的”版本需求”元数据，加载时 ld.so 会据此进行匹配。</p>
+</blockquote>
+<p><strong>方法二：运行时动态加载（<code>dlmopen</code> 与 <code>dlsym</code>）</strong></p>
+<p>若通过 <code>dlopen</code> 动态加载 <code>.so</code>，可以在 <code>dlsym</code> 中直接指定带版本的符号名：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span>* handle = <span class="built_in">dlopen</span>(<span class="string">&quot;./libmy_lib.so&quot;</span>, RTLD_LAZY);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取指定版本的函数指针</span></span><br><span class="line"><span class="keyword">auto</span> hello_v1 = (<span class="built_in">void</span>(*)())<span class="built_in">dlsym</span>(handle, <span class="string">&quot;hello@MYLIB_1.0&quot;</span>);</span><br><span class="line"><span class="keyword">auto</span> hello_v2 = (<span class="built_in">void</span>(*)())<span class="built_in">dlsym</span>(handle, <span class="string">&quot;hello@@MYLIB_2.0&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>dlsym</code> 的版本匹配完全在运行时发生，无需修改源码或重新编译主程序。</p>
+</blockquote>
+<hr>
+<h2 id="四、重定位：从相对坐标到绝对地址"><a href="#四、重定位：从相对坐标到绝对地址" class="headerlink" title="四、重定位：从相对坐标到绝对地址"></a>四、重定位：从相对坐标到绝对地址</h2><h3 id="8-rela-dyn-—-数据段重定位表"><a href="#8-rela-dyn-—-数据段重定位表" class="headerlink" title="[8] .rela.dyn — 数据段重定位表"></a>[8] <code>.rela.dyn</code> — 数据段重定位表</h3><p>在动态链接的共享库中，同一个 <code>.so</code> 文件在不同进程里可能被加载到不同的虚拟内存基地址（Base Address）。</p>
+<p><strong>核心矛盾</strong>：</p>
+<ul>
+<li><code>.text</code>（代码段）是只读的 → 不能事后修改指令中的地址</li>
+<li>但全局数据和全局指针必须在加载时知道绝对地址</li>
+</ul>
+<p><strong>解决方案</strong>：<code>.rela.dyn</code> 是 &#x3D;&#x3D;动态链接器用来将”相对地图”转化为”绝对坐标”的最后一把钥匙&#x3D;&#x3D;。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">编译期：编译器对代码段一律采用 RIP 相对寻址，不写入任何绝对地址</span><br><span class="line">加载期：动态链接器遍历 .rela.dyn 中的每一条重定位记录</span><br><span class="line">        → 计算 &quot;基址 + 偏移 = 绝对地址&quot;</span><br><span class="line">        → 将计算结果填入 .got 或 .data 中的对应位置</span><br></pre></td></tr></table></figure>
+
+<p><strong>与 <code>.rela.plt</code> 的关键区别</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th><code>.rela.dyn</code></th>
+<th><code>.rela.plt</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>作用对象</td>
+<td>全局变量、数据指针、vtable 等</td>
+<td>外部函数调用</td>
+</tr>
+<tr>
+<td>解析时机</td>
+<td>加载时（Load Time）一次性全部解析</td>
+<td>延迟绑定（Lazy Binding），首次调用时才解析</td>
+</tr>
+<tr>
+<td>目标段</td>
+<td><code>.got</code>（.data 相关条目）</td>
+<td><code>.got.plt</code></td>
+</tr>
+<tr>
+<td>是否可延迟</td>
+<td>否，必须在 <code>main()</code> 之前完成</td>
+<td>是，通过 PLT 桩代码按需触发</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="9-rela-plt-—-函数延迟绑定重定位表"><a href="#9-rela-plt-—-函数延迟绑定重定位表" class="headerlink" title="[9] .rela.plt — 函数延迟绑定重定位表"></a>[9] <code>.rela.plt</code> — 函数延迟绑定重定位表</h3><p><code>.rela.plt</code> 实现了动态链接的另一核心神技：&#x3D;&#x3D;延迟绑定（Lazy Binding）&#x3D;&#x3D;。</p>
+<p><strong>问题分析</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">超大型程序（如 Web 浏览器）可能依赖几千个外部函数</span><br><span class="line">  → 但单次运行中，实际调用率可能仅 10%</span><br><span class="line">  → 若启动时全部解析 → 启动速度缓慢，大量 CPU 浪费在无用符号上</span><br></pre></td></tr></table></figure>
+
+<p><strong>延迟绑定策略</strong>：&#x3D;&#x3D;&lt;U+201C&gt;不到万不得已，绝不查地址。&lt;U+201D&gt;&#x3D;&#x3D;</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">程序启动时：</span><br><span class="line">  → .got.plt 中所有外部函数条目初始化为&quot;指向 PLT 解析桩代码&quot;</span><br><span class="line">  → 动态链接器完全不去查找这些函数</span><br><span class="line"></span><br><span class="line">首次调用某函数时：</span><br><span class="line">  → 跳转到 .plt 中的桩代码</span><br><span class="line">  → 桩代码触发 .rela.plt 中对应的重定位条目</span><br><span class="line">  → 动态链接器查找真实地址并填入 .got.plt</span><br><span class="line">  → 后续调用直接通过 .got.plt 跳转，零开销</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="五、PLT-家族：过程链接的三层跳板"><a href="#五、PLT-家族：过程链接的三层跳板" class="headerlink" title="五、PLT 家族：过程链接的三层跳板"></a>五、PLT 家族：过程链接的三层跳板</h2><h3 id="10-plt-—-过程链接表"><a href="#10-plt-—-过程链接表" class="headerlink" title="[10] .plt — 过程链接表"></a>[10] <code>.plt</code> — 过程链接表</h3><p>在现代动态链接机制（尤其是开启 PIC 位置无关代码后），&#x3D;&#x3D;代码段是只读的&#x3D;&#x3D;，不能在 <code>.text</code> 中直接写入函数的目标绝对地址。</p>
+<p><code>.plt</code> 的定位：代码段中的 &#x3D;&#x3D;一小段跳板代码&#x3D;&#x3D;，作为从”相对调用”到”绝对地址”的桥梁。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">当你调用 printf() 时：</span><br><span class="line">  → 程序不会直接跳向内存中某个未知的绝对地址</span><br><span class="line">  → 而是跳向 .plt 里的一个固定偏移位置</span><br><span class="line">  → .plt 中的代码从 .got.plt 读取地址 → 执行跳转</span><br></pre></td></tr></table></figure>
+
+<p><strong>PLT 条目的两阶段行为</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th><code>.got.plt</code> 内容</th>
+<th><code>.plt</code> 行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>首次调用前</td>
+<td>指向 PLT 解析桩的地址</td>
+<td>压入符号索引 → 跳转公共解析器 → 查找真实地址 → 回填 <code>.got.plt</code></td>
+</tr>
+<tr>
+<td>首次调用后</td>
+<td>目标函数的真实地址</td>
+<td>直接 <code>jmp *(%rip + offset)</code> → 单指令开销</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="11-plt-got-—-优化版快速跳板"><a href="#11-plt-got-—-优化版快速跳板" class="headerlink" title="[11] .plt.got — 优化版快速跳板"></a>[11] <code>.plt.got</code> — 优化版快速跳板</h3><p><code>.plt.got</code> 是 <code>.plt</code> 的变体，为 x86_64 架构专门优化。</p>
+<p><strong>与标准 <code>.plt</code> 的差异</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th><code>.plt</code></th>
+<th><code>.plt.got</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>功能定位</td>
+<td>处理首次调用 + 后续调用</td>
+<td>仅处理 &#x3D;&#x3D;已解析地址后的快速跳转&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>典型指令数</td>
+<td>多条（含 <code>push</code> 索引 + <code>jmp</code> 解析器）</td>
+<td>极少（通常仅一条 <code>jmp</code> 指令）</td>
+</tr>
+<tr>
+<td>核心指令</td>
+<td><code>push $index</code> → <code>jmp resolver</code></td>
+<td><code>jmp QWORD PTR [rip + offset]</code></td>
+</tr>
+</tbody></table>
+<p><strong>运行时流程</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">延迟绑定阶段（首次调用）：</span><br><span class="line">  → 流程经过标准 .plt → 触发 ld.so 解析 → 回填 .got.plt</span><br><span class="line"></span><br><span class="line">解析完成后（后续调用）：</span><br><span class="line">  → 直接通过 .plt.got 的简短跳转指令</span><br><span class="line">  → 读取 .got.plt 中的地址</span><br><span class="line">  → 完全跳过标准 .plt 的解析辅助逻辑</span><br><span class="line">  → 调用开销降至理论最低</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="12-plt-sec-—-安全-PLT"><a href="#12-plt-sec-—-安全-PLT" class="headerlink" title="[12] .plt.sec — 安全 PLT"></a>[12] <code>.plt.sec</code> — 安全 PLT</h3><p><code>.plt.sec</code> 是为适配现代处理器 &#x3D;&#x3D;执行流完整性（CET）&#x3D;&#x3D; 检查而设计的 PLT 变体。</p>
+<p><strong>设计动机</strong>：</p>
+<p>传统 <code>.plt</code> 中混杂了跳转逻辑与辅助查找逻辑。<code>.plt.sec</code> 将其剥离为两个独立段：</p>
+<table>
+<thead>
+<tr>
+<th>段</th>
+<th>职责</th>
+<th>内存权限</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.plt</code></td>
+<td>保留最基础的跳转辅助逻辑（兼容旧链接器）</td>
+<td>RX（可读可执行）</td>
+</tr>
+<tr>
+<td><code>.plt.sec</code></td>
+<td>&#x3D;&#x3D;真正的跳转目的地&#x3D;&#x3D;，执行核心跳转指令</td>
+<td>可以更细粒度地控制内存保护属性（如设为只读）</td>
+</tr>
+</tbody></table>
+<p><strong>调用链路</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">调用库函数</span><br><span class="line">  → 跳转到 .plt 段</span><br><span class="line">  → .plt 段重定向到 .plt.sec 段</span><br><span class="line">  → .plt.sec 读取 .got.plt 中的地址</span><br><span class="line">  → 最终进入目标函数</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>.plt.sec</code> 将跳转目标进行精确对齐，使现代 CPU 的间接跳转追踪（IBT）能够验证目标指令为 <code>ENDBR64</code>，防止黑客利用跳转到指令中间位置的攻击手法。</p>
+</blockquote>
+<hr>
+<h2 id="六、代码与数据段"><a href="#六、代码与数据段" class="headerlink" title="六、代码与数据段"></a>六、代码与数据段</h2><h3 id="16-text-—-代码段"><a href="#16-text-—-代码段" class="headerlink" title="[16] .text — 代码段"></a>[16] <code>.text</code> — 代码段</h3><p><code>.text</code> 是存放所有编译后的 &#x3D;&#x3D;机器指令&#x3D;&#x3D; 的只读段。</p>
+<p><strong>核心属性</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>内存权限</td>
+<td>R-X（只读 + 可执行）</td>
+</tr>
+<tr>
+<td>物理内存共享</td>
+<td>同一 <code>.so</code> 的 <code>.text</code> 被所有进程共享同一物理页，不浪费一个字节</td>
+</tr>
+<tr>
+<td>寻址方式</td>
+<td>全部采用 &#x3D;&#x3D;RIP 相对寻址&#x3D;&#x3D;，禁止包含绝对地址</td>
+</tr>
+</tbody></table>
+<p><strong>为何不能包含绝对地址？</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ASLR（地址空间布局随机化）→ .so 每次加载的基地址不同</span><br><span class="line">  → 若 .text 中包含绝对地址（如 call 0x7f123400）</span><br><span class="line">  → 每次加载时该地址必然失效</span><br><span class="line">  → .text 是只读的 → 无法通过重定位&quot;打补丁&quot;</span><br><span class="line">  → 因此编译器必须将所有指令写成：</span><br><span class="line">    &quot;从当前位置（RIP）向后偏移 X 字节&quot; 或 &quot;跳转到偏移 Y 字节的位置&quot;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>&#x3D;&#x3D;<code>-fPIC</code>（位置无关代码）是现代 Linux 系统的默认选项，它强制 <code>.text</code> 中所有寻址均为相对寻址。&#x3D;&#x3D;</p>
+</blockquote>
+<p><strong>名称由来</strong>：源于早期 Unix 汇编器设计，代码被视为 “Text”，数据被视为 “Data”，即便如今存放的是二进制机器码，名称仍然沿用。</p>
+<hr>
+<h3 id="17-rodata-—-只读数据段"><a href="#17-rodata-—-只读数据段" class="headerlink" title="[17] .rodata — 只读数据段"></a>[17] <code>.rodata</code> — 只读数据段</h3><p>存放所有编译期确定且不可变的数据：</p>
+<table>
+<thead>
+<tr>
+<th>内容类型</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>字符串常量</td>
+<td><code>printf(&quot;Hello, World!&quot;)</code> 中的 <code>&quot;Hello, World!&quot;</code></td>
+</tr>
+<tr>
+<td><code>const</code> 常量</td>
+<td><code>const int g_version = 2026;</code></td>
+</tr>
+<tr>
+<td>数组&#x2F;结构体常量</td>
+<td><code>const int table[] = &#123;1, 2, 3, 4&#125;;</code></td>
+</tr>
+<tr>
+<td>&#x3D;&#x3D;C++ 虚函数表 (vtable)&#x3D;&#x3D;</td>
+<td>类的虚函数指针数组</td>
+</tr>
+</tbody></table>
+<p><strong>vtable 为何放在 <code>.rodata</code>？</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">编译期：编译器计算某个类的所有虚函数地址，排列为固定数组</span><br><span class="line">  → 该数组内容在整个程序生命周期内永不改变</span><br><span class="line">  → 它是编译期产物，天生静态只读</span><br><span class="line">  → 只能放入 .rodata 段</span><br></pre></td></tr></table></figure>
+
+<p><strong>字符串合并优化</strong>：编译器开启”字符串合并”功能后，若代码中出现三次 <code>const char* s = &quot;Error&quot;;</code>，链接器仅向 <code>.rodata</code> 存放一个 <code>&quot;Error&quot;</code>，所有指针指向同一内存地址。</p>
+<hr>
+<h3 id="24-data-—-已初始化数据段"><a href="#24-data-—-已初始化数据段" class="headerlink" title="[24] .data — 已初始化数据段"></a>[24] <code>.data</code> — 已初始化数据段</h3><p>存放已显式初始化为非零值的全局变量与静态变量。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">编译期：编译器将所有已初始化全局变量收集 → 放入 .data 段</span><br><span class="line">加载期：操作系统将磁盘上的 .data 段内容直接 mmap 到内存数据区</span><br><span class="line">运行期：程序可自由读写，变量在整个进程生命周期内始终存在</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="25-bss-—-零初始化数据段"><a href="#25-bss-—-零初始化数据段" class="headerlink" title="[25] .bss — 零初始化数据段"></a>[25] <code>.bss</code> — 零初始化数据段</h3><p>&#x3D;&#x3D;<code>.bss</code> 在磁盘上的二进制文件中不占用实际物理存储空间。&#x3D;&#x3D;</p>
+<p><strong>存储策略</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">编译期：</span><br><span class="line">  int global_array[10000] = &#123;0&#125;;</span><br><span class="line">  → 编译器不在 ELF 文件中分配 40KB 的零来填充</span><br><span class="line">  → 仅在 ELF 头部记录：&quot;需要 40KB 的 .bss 段空间&quot;</span><br><span class="line"></span><br><span class="line">加载期：</span><br><span class="line">  → 操作系统读取该信息</span><br><span class="line">  → 在内存中直接分配 40KB 零填充内存（Zero-filled memory）</span><br></pre></td></tr></table></figure>
+
+<p><strong>三段对比总结</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>段名</th>
+<th>变量类型</th>
+<th>初始化内容</th>
+<th>磁盘占用</th>
+<th>内存权限</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.data</code></td>
+<td>全局&#x2F;静态</td>
+<td>非零初值</td>
+<td>有</td>
+<td>读写</td>
+</tr>
+<tr>
+<td><code>.bss</code></td>
+<td>全局&#x2F;静态</td>
+<td>零 &#x2F; 未初始化</td>
+<td>&#x3D;&#x3D;无&#x3D;&#x3D;</td>
+<td>读写（初始化为 0）</td>
+</tr>
+<tr>
+<td><code>.rodata</code></td>
+<td>常量</td>
+<td>只读数据</td>
+<td>有</td>
+<td>只读</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="43-tdata-—-线程局部已初始化数据段"><a href="#43-tdata-—-线程局部已初始化数据段" class="headerlink" title="[43] .tdata — 线程局部已初始化数据段"></a>[43] <code>.tdata</code> — 线程局部已初始化数据段</h3><p>存放已初始化的 &#x3D;&#x3D;线程局部变量（TLS）&#x3D;&#x3D;。每个线程拥有独立副本。</p>
+<h3 id="44-tbss-—-线程局部零初始化数据段"><a href="#44-tbss-—-线程局部零初始化数据段" class="headerlink" title="[44] .tbss — 线程局部零初始化数据段"></a>[44] <code>.tbss</code> — 线程局部零初始化数据段</h3><p>存放未初始化的线程局部变量，与 <code>.bss</code> 策略类似——磁盘不占用空间，运行时零填充。</p>
+<hr>
+<h2 id="七、初始化与清理段"><a href="#七、初始化与清理段" class="headerlink" title="七、初始化与清理段"></a>七、初始化与清理段</h2><h3 id="13-init-—-前置初始化代码段"><a href="#13-init-—-前置初始化代码段" class="headerlink" title="[13] .init — 前置初始化代码段"></a>[13] <code>.init</code> — 前置初始化代码段</h3><p>在 ELF 的世界里，&#x3D;&#x3D;程序的起点不是 <code>main()</code>，终点也不是 <code>return 0</code>&#x3D;&#x3D;。</p>
+<p><code>.init</code> 的作用：在 <code>main()</code> 执行之前，自动运行初始化代码。</p>
+<p><strong>触发条件</strong>（编译器自动生成）：</p>
+<ul>
+<li>全局变量初始化</li>
+<li>静态对象构造（C++）</li>
+<li><code>__attribute__((constructor))</code> 修饰的函数</li>
+</ul>
+<p><strong>执行者</strong>：动态链接器 <code>ld.so</code>。它在完成所有重定位工作（<code>.rela.dyn</code>）、填好函数地址（<code>.got.plt</code>）之后，&#x3D;&#x3D;跳入 <code>.init</code> 段逐条执行其中的代码&#x3D;&#x3D;，最后才将控制权交给 <code>main()</code>。</p>
+<hr>
+<h3 id="14-fini-—-后置清理代码段"><a href="#14-fini-—-后置清理代码段" class="headerlink" title="[14] .fini — 后置清理代码段"></a>[14] <code>.fini</code> — 后置清理代码段</h3><p>与 <code>.init</code> 对应，<code>.fini</code> 存放程序在 <code>exit()</code> 或 <code>return</code> 之后自动运行的清理代码。</p>
+<p><strong>用途</strong>：释放全局内存、关闭文件句柄、清理互斥锁。</p>
+<p><strong>执行时机</strong>：进程即将退出、但从内存中彻底移除之前。</p>
+<hr>
+<h3 id="15-init-array-与-fini-array-—-现代化初始化机制"><a href="#15-init-array-与-fini-array-—-现代化初始化机制" class="headerlink" title="[15] .init_array 与 .fini_array — 现代化初始化机制"></a>[15] <code>.init_array</code> 与 <code>.fini_array</code> — 现代化初始化机制</h3><p>现代 ELF 文件中更常见的是 <code>.init_array</code> 和 <code>.fini_array</code>，而非原始的 <code>.init</code>&#x2F;<code>.fini</code> 代码段。</p>
+<p><strong>关键区别</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th><code>.init</code> &#x2F; <code>.fini</code></th>
+<th><code>.init_array</code> &#x2F; <code>.fini_array</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>内容形态</td>
+<td>&#x3D;&#x3D;纯粹的机器码指令&#x3D;&#x3D;</td>
+<td>&#x3D;&#x3D;函数指针数组&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>执行方式</td>
+<td>直接跳入段内逐条执行</td>
+<td>遍历数组，依次 <code>call</code> 每个函数指针</td>
+</tr>
+<tr>
+<td>灵活性</td>
+<td>编译器生成的单一代码快照</td>
+<td>允许多个源文件各自注册构造&#x2F;析构函数</td>
+</tr>
+</tbody></table>
+<p><strong>实现原理</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">编译期：编译器为每个 .cpp 中 __attribute__((constructor)) 的函数生成函数指针</span><br><span class="line">链接期：链接器将所有 .init_array 条目合并为一个数组</span><br><span class="line">加载期：ld.so（通过 .dynamic 中的 DT_INIT_ARRAY）获取数组地址 → 遍历调用</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>&#x3D;&#x3D;这些”在 main 之前或之后自动执行的逻辑”并非凭空产生，而是编译器和链接器协同”缝合”进 ELF 结构中的。&#x3D;&#x3D;</p>
+</blockquote>
+<hr>
+<h2 id="八、异常处理与栈回溯段"><a href="#八、异常处理与栈回溯段" class="headerlink" title="八、异常处理与栈回溯段"></a>八、异常处理与栈回溯段</h2><h3 id="18-eh-frame-hdr-—-异常帧头部索引"><a href="#18-eh-frame-hdr-—-异常帧头部索引" class="headerlink" title="[18] .eh_frame_hdr — 异常帧头部索引"></a>[18] <code>.eh_frame_hdr</code> — 异常帧头部索引</h3><p><code>.eh_frame_hdr</code> 是为实现 &#x3D;&#x3D;快速索引&#x3D;&#x3D; 而存在的查找表，其本质是经过排序的二分搜索目录。</p>
+<p><strong>问题分析</strong>：</p>
+<p><code>.eh_frame</code> 记录的是”如何从任一指令位置还原调用栈”的规则。但其原始排列顺序遵循编译器的编译顺序（逐个翻译单元），在链接后呈现 &#x3D;&#x3D;本质上随性甚至混乱的顺序&#x3D;&#x3D;。</p>
+<p>当异常发生时，CPU 需要立即根据当前 <code>RIP</code> 查找对应的异常处理规则。若在无序的 <code>.eh_frame</code> 中线性扫描，性能不可接受。</p>
+<p><strong>解决方案</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">链接期：</span><br><span class="line">  → 链接器提取 .eh_frame 中所有 FDE (Frame Description Entry) 的起始地址</span><br><span class="line">  → 按 Initial PC 升序排列</span><br><span class="line">  → 构建二分查找表</span><br><span class="line">  → 写入 .eh_frame_hdr</span><br><span class="line"></span><br><span class="line">运行时：</span><br><span class="line">  → 异常发生 → CPU 获取当前 RIP</span><br><span class="line">  → 在 .eh_frame_hdr 中二分查找（O(log N)）</span><br><span class="line">  → 定位到对应的 FDE → 执行栈回溯与异常分发</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="19-eh-frame-—-异常帧信息"><a href="#19-eh-frame-—-异常帧信息" class="headerlink" title="[19] .eh_frame — 异常帧信息"></a>[19] <code>.eh_frame</code> — 异常帧信息</h3><p><code>.eh_frame</code> 的核心作用是实现 &#x3D;&#x3D;栈回溯（Stack Unwinding）&#x3D;&#x3D;。</p>
+<p>当程序发生异常（<code>throw</code>）或需要堆栈追踪（如 GDB 打印调用栈）时，系统必须回答三个问题：</p>
+<ol>
+<li>&#x3D;&#x3D;当前的函数调用链路是怎样的？&#x3D;&#x3D;（谁调用了我？我调用了谁？）</li>
+<li>&#x3D;&#x3D;上一级函数的栈帧在哪？&#x3D;&#x3D;（寄存器状态、返回地址在哪？）</li>
+<li>&#x3D;&#x3D;当前函数有哪些局部对象需要清理？&#x3D;&#x3D;（析构函数在哪？）</li>
+</ol>
+<p><strong>内部表示</strong>：<code>.eh_frame</code> 存储一组 CFI (Call Frame Information) 指令：</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>DW_CFA_advance_loc</code></td>
+<td>指示代码偏移量</td>
+</tr>
+<tr>
+<td><code>DW_CFA_def_cfa_offset</code></td>
+<td>指示栈指针的变化量</td>
+</tr>
+<tr>
+<td><code>DW_CFA_offset</code></td>
+<td>指示某个寄存器的值保存在栈的哪个位置</td>
+</tr>
+</tbody></table>
+<p>这些指令被高度压缩编码，即使程序代码量巨大，<code>.eh_frame</code> 的物理占用也保持可控。</p>
+<hr>
+<h3 id="20-gcc-except-table-—-语言特定数据区-LSDA"><a href="#20-gcc-except-table-—-语言特定数据区-LSDA" class="headerlink" title="[20] .gcc_except_table — 语言特定数据区 (LSDA)"></a>[20] <code>.gcc_except_table</code> — 语言特定数据区 (LSDA)</h3><p>若说 <code>.eh_frame</code> 负责回答 &#x3D;&#x3D;怎么回溯&#x3D;&#x3D;（栈帧撤销、寄存器恢复），那么 <code>.gcc_except_table</code> 负责回答：</p>
+<ul>
+<li>&#x3D;&#x3D;在何处停止回溯&#x3D;&#x3D;</li>
+<li>&#x3D;&#x3D;如何匹配 <code>catch</code> 块&#x3D;&#x3D;</li>
+</ul>
+<p><strong>记录内容</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>信息</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>try</code> 块覆盖范围</td>
+<td>代码段中哪些地址范围受 <code>try</code> 保护</td>
+</tr>
+<tr>
+<td>异常类型信息 (Type Info)</td>
+<td>用于与 <code>catch (Type e)</code> 进行 RTTI 比对</td>
+</tr>
+<tr>
+<td><code>catch</code> 块跳转地址</td>
+<td>异常被抛出后，程序应该跳转到哪个 <code>catch</code> 块</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="九、全局偏移表-GOT-家族"><a href="#九、全局偏移表-GOT-家族" class="headerlink" title="九、全局偏移表 (GOT) 家族"></a>九、全局偏移表 (GOT) 家族</h2><h3 id="22-got-—-全局偏移表"><a href="#22-got-—-全局偏移表" class="headerlink" title="[22] .got — 全局偏移表"></a>[22] <code>.got</code> — 全局偏移表</h3><p>现代操作系统启用 ASLR，程序加载位置不固定。因此 <code>.text</code> 中的指令 &#x3D;&#x3D;不能直接引用绝对地址&#x3D;&#x3D;，但又必须访问共享库中的函数和全局变量。</p>
+<p><code>.got</code> 的定位：&#x3D;&#x3D;一个数据段，专门存放外部函数和全局变量的绝对地址&#x3D;&#x3D;。代码段通过间接寻址的方式先查 <code>.got</code>，再获取真实地址。</p>
+<hr>
+<h3 id="23-got-plt-—-函数地址懒加载表"><a href="#23-got-plt-—-函数地址懒加载表" class="headerlink" title="[23] .got.plt — 函数地址懒加载表"></a>[23] <code>.got.plt</code> — 函数地址懒加载表</h3><p><strong>两个 GOT 段的职责划分</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>段</th>
+<th>存放内容</th>
+<th>填充时机</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.got</code></td>
+<td>全局变量 &#x2F; 数据地址</td>
+<td>加载时一次性填入</td>
+</tr>
+<tr>
+<td><code>.got.plt</code></td>
+<td>函数地址（<code>printf()</code>、<code>malloc()</code> 等）</td>
+<td>&#x3D;&#x3D;懒加载——首次调用时才填入&#x3D;&#x3D;</td>
+</tr>
+</tbody></table>
+<p><strong><code>.got.plt</code> 前三个特殊槽位</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>槽位</th>
+<th>内容</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>槽位 0</td>
+<td><code>_DYNAMIC</code> 段的地址</td>
+<td>让动态链接器定位整个 <code>.dynamic</code> 结构</td>
+</tr>
+<tr>
+<td>槽位 1</td>
+<td><code>link_map</code> 数据结构地址</td>
+<td>跟踪所有已加载的动态库</td>
+</tr>
+<tr>
+<td>槽位 2</td>
+<td><code>_dl_runtime_resolve</code> 函数地址</td>
+<td>&#x3D;&#x3D;幕后解析引擎——负责查找真实函数地址并回填&#x3D;&#x3D;</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="48-Full-RELRO-下的-got-plt"><a href="#48-Full-RELRO-下的-got-plt" class="headerlink" title="[48] Full RELRO 下的 .got.plt"></a>[48] Full RELRO 下的 <code>.got.plt</code></h3><p>在开启了 Full RELRO（Relocation Read-Only）保护的程序中：<code>.got.plt</code> 被合并入 <code>.got</code>，且整个段在重定位完成后被标记为 &#x3D;&#x3D;只读&#x3D;&#x3D;。</p>
+<p><strong>安全收益</strong>：即使攻击者获得了任意地址写入的能力，也无法篡改已解析的函数指针（因为 <code>.got</code> 已被 <code>mprotect</code> 设为只读）。</p>
+<p><strong>代价</strong>：必须放弃延迟绑定——所有外部函数在 <code>main()</code> 之前全部解析完毕。</p>
+<hr>
+<h2 id="十、符号表与字符串表"><a href="#十、符号表与字符串表" class="headerlink" title="十、符号表与字符串表"></a>十、符号表与字符串表</h2><h3 id="30-symtab-—-完整符号表"><a href="#30-symtab-—-完整符号表" class="headerlink" title="[30] .symtab — 完整符号表"></a>[30] <code>.symtab</code> — 完整符号表</h3><p>若说 <code>.got</code> 和 <code>.dynamic</code> 是运行时的导航图，那么 <code>.symtab</code> 就是这份导航图背后的 &#x3D;&#x3D;原始定义库&#x3D;&#x3D;。</p>
+<p><strong>对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th><code>.symtab</code></th>
+<th><code>.dynsym</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>包含范围</td>
+<td>所有符号（含内部函数、局部静态变量、调试符号）</td>
+<td>仅动态链接所需的最小集合</td>
+</tr>
+<tr>
+<td>运行时需求</td>
+<td>&#x3D;&#x3D;不需要&#x3D;&#x3D;（<code>strip</code> 后程序正常运行）</td>
+<td>&#x3D;&#x3D;必须保留&#x3D;&#x3D;（否则无法启动）</td>
+</tr>
+<tr>
+<td>主要用途</td>
+<td>调试 (GDB)、静态链接、逆向工程</td>
+<td>动态加载与符号解析</td>
+</tr>
+<tr>
+<td>大小</td>
+<td>较大</td>
+<td>精简</td>
+</tr>
+</tbody></table>
+<p><strong>每条符号记录包含</strong>：符号名、值（地址&#x2F;偏移）、大小、类型（<code>FUNC</code>&#x2F;<code>OBJECT</code>&#x2F;<code>SECTION</code>）、绑定（<code>GLOBAL</code>&#x2F;<code>LOCAL</code>）。</p>
+<hr>
+<h3 id="30-strtab-—-字符串表"><a href="#30-strtab-—-字符串表" class="headerlink" title="[30] .strtab — 字符串表"></a>[30] <code>.strtab</code> — 字符串表</h3><p><code>.strtab</code> 是非常纯粹的辅助段——它是一连串以 <code>\0</code> 结尾的 C 风格字符串。</p>
+<p><strong>设计动机</strong>（与 <code>.dynstr</code> 同理）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">.symtab 的每一项 (Elf64_Sym) 大小必须固定 → 数组索引 O(1)</span><br><span class="line">  → st_name 字段不能是变长字符串 → 改为整数偏移量</span><br><span class="line">  → 所有名字集中堆叠在 .strtab 中</span><br><span class="line">  → .symtab 条目通过 st_name 偏移量定位 .strtab 中的名字</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="十一、调试信息段-DWARF"><a href="#十一、调试信息段-DWARF" class="headerlink" title="十一、调试信息段 (DWARF)"></a>十一、调试信息段 (DWARF)</h2><h3 id="33-debug-aranges-—-地址范围查找表"><a href="#33-debug-aranges-—-地址范围查找表" class="headerlink" title="[33] .debug_aranges — 地址范围查找表"></a>[33] <code>.debug_aranges</code> — 地址范围查找表</h3><p>DWARF 调试信息的一部分，是为优化调试器查找效率而存在的 &#x3D;&#x3D;预建索引&#x3D;&#x3D;。</p>
+<p><strong>问题</strong>：GDB 在某地址停下时，需要知道”这个地址属于哪个编译单元？”。若无索引，必须遍历所有编译单元的 <code>.debug_info</code>，解析其地址范围（<code>DW_AT_low_pc</code> ~ <code>DW_AT_high_pc</code>），在大型项目中极慢。</p>
+<p><strong>解决方案</strong>：<code>.debug_aranges</code> 将地址范围直接映射到编译单元偏移量，实现 $O(1)$ 或 $O(\log N)$ 查询。</p>
+<p><strong>存储内容</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Start Address</td>
+<td>地址范围起始点</td>
+</tr>
+<tr>
+<td>Length</td>
+<td>范围长度</td>
+</tr>
+<tr>
+<td>CU Offset</td>
+<td>指向该地址范围所属 <code>.debug_info</code> 的具体偏移</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="34-debug-info-—-核心调试信息"><a href="#34-debug-info-—-核心调试信息" class="headerlink" title="[34] .debug_info — 核心调试信息"></a>[34] <code>.debug_info</code> — 核心调试信息</h3><p>当 GDB 解析 <code>.debug_info</code> 时，能还原几乎所有原始代码信息：</p>
+<ul>
+<li>数据结构：类的成员数量、字节数、偏移量</li>
+<li>函数声明：函数名、返回值类型、参数列表及其类型</li>
+<li>源代码映射：变量定义的文件与行号</li>
+</ul>
+<p><strong>内部结构</strong>：<code>.debug_info</code> 以 DIE (Debugging Information Entry) 为单元形成树状结构。</p>
+<p>每个 DIE 包含：</p>
+<ul>
+<li><strong>Tag</strong>：如 <code>DW_TAG_compile_unit</code>（编译单元）、<code>DW_TAG_subprogram</code>（函数）、<code>DW_TAG_base_type</code>（基本类型）</li>
+<li><strong>Attribute</strong>：如 <code>DW_AT_name</code>（名字）、<code>DW_AT_type</code>（类型引用）、<code>DW_AT_location</code>（变量存储位置）</li>
+</ul>
+<p><strong>与其他调试段的关系</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>相关段</th>
+<th>关系</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.debug_str</code></td>
+<td><code>.debug_info</code> 中的字符串不直接存放，而是存偏移量指向 <code>.debug_str</code>（&#x3D;&#x3D;字符串去重&#x3D;&#x3D;）</td>
+</tr>
+<tr>
+<td><code>.debug_line</code></td>
+<td><code>.debug_info</code> 告知函数位置，<code>.debug_line</code> 告知具体指令对应源码行号</td>
+</tr>
+<tr>
+<td><code>.debug_abbrev</code></td>
+<td>&#x3D;&#x3D;最关键配对&#x3D;&#x3D;：<code>.debug_abbrev</code> 预定义 DIE 结构模式并赋予编号，<code>.debug_info</code> 仅存编号，大幅压缩体积</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="35-debug-abbrev-—-缩写表"><a href="#35-debug-abbrev-—-缩写表" class="headerlink" title="[35] .debug_abbrev — 缩写表"></a>[35] <code>.debug_abbrev</code> — 缩写表</h3><p><strong>设计动机</strong>：<code>.debug_info</code> 中的每个 DIE 都需要描述自身结构（如”我是函数，我有 Name、Line、Type 三个属性”）。若每个 DIE 完整重复描述，调试信息体积将爆炸。</p>
+<p><strong>解决方案</strong>：将常见的 DIE 结构模式预定义为编号（Abbrev Number），<code>.debug_info</code> 中仅存编号即可。</p>
+<blockquote>
+<p>这是调试信息压缩的核心策略——&#x3D;&#x3D;用查表替代重复描述&#x3D;&#x3D;。</p>
+</blockquote>
+<hr>
+<h3 id="36-debug-line-—-行号映射表"><a href="#36-debug-line-—-行号映射表" class="headerlink" title="[36] .debug_line — 行号映射表"></a>[36] <code>.debug_line</code> — 行号映射表</h3><p>编译器在生成机器码时会进行大量优化（指令重排、函数内联、循环展开），导致：</p>
+<ul>
+<li>源代码第 10 行可能被拆散到不同的内存位置</li>
+<li>机器码中连续的两条指令可能分别来自源码第 10 行和第 50 行</li>
+</ul>
+<p><code>.debug_line</code> 记录 &#x3D;&#x3D;指令地址到源代码行号的映射&#x3D;&#x3D;：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">内存地址 0x1100 ~ 0x1120 → 对应 main.c 第 15 行</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这是 GDB 实现”单步执行（next）”和行级断点的物理基础。</p>
+</blockquote>
+<hr>
+<h3 id="37-debug-str-—-调试字符串表"><a href="#37-debug-str-—-调试字符串表" class="headerlink" title="[37] .debug_str — 调试字符串表"></a>[37] <code>.debug_str</code> — 调试字符串表</h3><p>在 <code>.debug_info</code> 和 <code>.debug_abbrev</code> 中会大量出现重复字符串（变量名、文件名、编译器标识）。若在每个 DIE 中完整存储，体积巨大。</p>
+<p><code>.debug_str</code> 将所有字符串统一存放，<code>.debug_info</code> 中仅存偏移量。</p>
+<hr>
+<h3 id="38-debug-line-str-—-行号路径字符串表"><a href="#38-debug-line-str-—-行号路径字符串表" class="headerlink" title="[38] .debug_line_str — 行号路径字符串表"></a>[38] <code>.debug_line_str</code> — 行号路径字符串表</h3><p><strong>为何不与 <code>.debug_str</code> 合并？</strong></p>
+<table>
+<thead>
+<tr>
+<th>段</th>
+<th>存储内容</th>
+<th>读取特征</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.debug_str</code></td>
+<td>通用调试字符串（变量名、函数名、类型名、编译器版本）</td>
+<td>分散访问</td>
+</tr>
+<tr>
+<td><code>.debug_line_str</code></td>
+<td>&#x3D;&#x3D;文件路径字符串&#x3D;&#x3D;（如 <code>/home/user/project/src/main.c</code>）</td>
+<td>行号查找时高频集中读取</td>
+</tr>
+</tbody></table>
+<p><strong>分离收益</strong>：</p>
+<ul>
+<li>调试器进行行号查找时，只需 <code>mmap</code> <code>.debug_line_str</code>，无需将庞大的 <code>.debug_str</code> 也加载进来</li>
+<li>利用内存映射（Memory Mapping）进行更好的缓存优化</li>
+</ul>
+<blockquote>
+<p>在 DWARF 4 及以前，路径字符串直接存于 <code>.debug_line</code> 内部，导致冗余存储和解析复杂化。DWARF 5 引入 <code>.debug_line_str</code> 解决了这一问题。</p>
+</blockquote>
+<hr>
+<h2 id="十二、其他特殊段"><a href="#十二、其他特殊段" class="headerlink" title="十二、其他特殊段"></a>十二、其他特殊段</h2><h3 id="46-gnu-lto-—-链接时优化中间代码段"><a href="#46-gnu-lto-—-链接时优化中间代码段" class="headerlink" title="[46] .gnu.lto — 链接时优化中间代码段"></a>[46] <code>.gnu.lto</code> — 链接时优化中间代码段</h3><p>LTO (Link-Time Optimization) 产生的中间代码段，用于链接器在最后阶段进行 &#x3D;&#x3D;跨模块代码优化&#x3D;&#x3D;。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">传统编译：a.cpp → a.o（机器码）, b.cpp → b.o（机器码） → 链接</span><br><span class="line">LTO 编译：a.cpp → a.o（GIMPLE/LLVM IR 中间码 + 机器码） → 链接器重新优化所有 IR → 最终机器码</span><br></pre></td></tr></table></figure>
+
+<p><code>.gnu.lto</code> 存储的就是那些 &#x3D;&#x3D;GIMPLE 中间表示&#x3D;&#x3D;，供链接器二次编译与全局优化。</p>
+<h3 id="41-rodata-cst16-rodata-str1-1-—-特殊只读段"><a href="#41-rodata-cst16-rodata-str1-1-—-特殊只读段" class="headerlink" title="[41] .rodata.cst16 &#x2F; .rodata.str1.1 — 特殊只读段"></a>[41] <code>.rodata.cst16</code> &#x2F; <code>.rodata.str1.1</code> — 特殊只读段</h3><p>编译器为特定对齐或合并策略生成的 <code>.rodata</code> 子变体，用于存放常量合并优化后的数据。</p>
+<h3 id="42-plt-got-vs-plt-sec-—-架构相关-PLT-变体"><a href="#42-plt-got-vs-plt-sec-—-架构相关-PLT-变体" class="headerlink" title="[42] .plt.got vs .plt.sec — 架构相关 PLT 变体"></a>[42] <code>.plt.got</code> vs <code>.plt.sec</code> — 架构相关 PLT 变体</h3><p>（已在前文第五部分详述。）</p>
+<h3 id="45-tdata1-—-扩展段"><a href="#45-tdata1-—-扩展段" class="headerlink" title="[45] .tdata1 — 扩展段"></a>[45] <code>.tdata1</code> — 扩展段</h3><p>某些特殊编译器产生的 TLS 扩展段。</p>
+<h3 id="40-rel-dyn-—-rela-dyn-的变体"><a href="#40-rel-dyn-—-rela-dyn-的变体" class="headerlink" title="[40] .rel.dyn — .rela.dyn 的变体"></a>[40] <code>.rel.dyn</code> — <code>.rela.dyn</code> 的变体</h3><p><code>.rel</code> 与 <code>.rela</code> 的区别仅在于重定位条目中是否显式包含 Addend（加数）：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>Addend 位置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.rela.dyn</code> (RELA)</td>
+<td>显式存储于重定位条目中</td>
+</tr>
+<tr>
+<td><code>.rel.dyn</code> (REL)</td>
+<td>隐式存储——Addend 藏在要被修补的内存位置上</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="附录：段索引速查表"><a href="#附录：段索引速查表" class="headerlink" title="附录：段索引速查表"></a>附录：段索引速查表</h2><table>
+<thead>
+<tr>
+<th>索引</th>
+<th>段名</th>
+<th>核心功能</th>
+<th>运行时必需</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>[0]</td>
+<td>NULL</td>
+<td>哨兵段</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[1]</td>
+<td><code>.note.gnu.property</code></td>
+<td>CET &#x2F; Shadow Stack 安全声明</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[2]</td>
+<td><code>.note.gnu.build-id</code></td>
+<td>二进制数字指纹</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[3]</td>
+<td><code>.gnu.hash</code></td>
+<td>动态符号哈希索引</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[4]</td>
+<td><code>.dynsym</code></td>
+<td>动态符号表</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[5]</td>
+<td><code>.dynstr</code></td>
+<td>动态字符串表</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[6]</td>
+<td><code>.gnu.version</code></td>
+<td>符号版本表</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[7]</td>
+<td><code>.gnu.version_r</code></td>
+<td>版本需求表</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[8]</td>
+<td><code>.rela.dyn</code></td>
+<td>数据段重定位表</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[9]</td>
+<td><code>.rela.plt</code></td>
+<td>函数延迟绑定重定位</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[10]</td>
+<td><code>.plt</code></td>
+<td>过程链接表</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[11]</td>
+<td><code>.plt.got</code></td>
+<td>优化版 PLT</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[12]</td>
+<td><code>.plt.sec</code></td>
+<td>安全 PLT</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[13]</td>
+<td><code>.init</code></td>
+<td>前置初始化代码</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[14]</td>
+<td><code>.fini</code></td>
+<td>后置清理代码</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[15]</td>
+<td><code>.init_array</code> &#x2F; <code>.fini_array</code></td>
+<td>现代化初始化机制</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[16]</td>
+<td><code>.text</code></td>
+<td>代码段</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[17]</td>
+<td><code>.rodata</code></td>
+<td>只读数据段（含 vtable）</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[18]</td>
+<td><code>.eh_frame_hdr</code></td>
+<td>异常帧二分索引</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[19]</td>
+<td><code>.eh_frame</code></td>
+<td>栈回溯信息</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[20]</td>
+<td><code>.gcc_except_table</code></td>
+<td>异常处理行为手册</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[21]</td>
+<td><code>.dynamic</code></td>
+<td>动态配置清单</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[22]</td>
+<td><code>.got</code></td>
+<td>全局偏移表</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[23]</td>
+<td><code>.got.plt</code></td>
+<td>函数地址懒加载表</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[24]</td>
+<td><code>.data</code></td>
+<td>已初始化数据</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[25]</td>
+<td><code>.bss</code></td>
+<td>零初始化数据</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[29]</td>
+<td><code>.comment</code></td>
+<td>工具链指纹</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[30]</td>
+<td><code>.symtab</code></td>
+<td>完整符号表</td>
+<td>否（可 strip）</td>
+</tr>
+<tr>
+<td>[30]</td>
+<td><code>.strtab</code></td>
+<td>字符串表</td>
+<td>否（可 strip）</td>
+</tr>
+<tr>
+<td>[31]</td>
+<td><code>.shstrtab</code></td>
+<td>段名字符串表</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[32]</td>
+<td><code>.interp</code></td>
+<td>动态链接器路径</td>
+<td>&#x3D;&#x3D;是&#x3D;&#x3D;</td>
+</tr>
+<tr>
+<td>[33]</td>
+<td><code>.debug_aranges</code></td>
+<td>DWARF 地址范围查找</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[34]</td>
+<td><code>.debug_info</code></td>
+<td>DWARF 核心调试信息</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[35]</td>
+<td><code>.debug_abbrev</code></td>
+<td>DWARF 缩写表</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[36]</td>
+<td><code>.debug_line</code></td>
+<td>行号映射表</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[37]</td>
+<td><code>.debug_str</code></td>
+<td>调试字符串表</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[38]</td>
+<td><code>.debug_line_str</code></td>
+<td>行号路径字符串表</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[39]</td>
+<td><code>.note.ABI-tag</code></td>
+<td>ABI 兼容性标签</td>
+<td>否</td>
+</tr>
+<tr>
+<td>[43]</td>
+<td><code>.tdata</code></td>
+<td>线程局部已初始化数据</td>
+<td>否（按需）</td>
+</tr>
+<tr>
+<td>[44]</td>
+<td><code>.tbss</code></td>
+<td>线程局部零初始化数据</td>
+<td>否（按需）</td>
+</tr>
+<tr>
+<td>[46]</td>
+<td><code>.gnu.lto</code></td>
+<td>LTO 中间代码</td>
+<td>否</td>
+</tr>
+</tbody></table>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>Author: </span><span class="post-copyright-info"><a href="https://q1375854021.github.io/QQBlog">QQLaoban</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>Link: </span><span class="post-copyright-info"><a href="https://q1375854021.github.io/QQBlog/2026/06/30/%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5-1-%E6%AE%B5/">https://q1375854021.github.io/QQBlog/2026/06/30/%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5-1-%E6%AE%B5/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>Copyright Notice: </span><span class="post-copyright-info">All articles on this blog are licensed under <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> unless otherwise stated.</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/QQBlog/tags/XV6-2024/">XV6-2024</a></div><div class="post-share"><div class="social-share" data-image="/QQBlog/img/butterfly-icon.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/QQBlog/2026/06/01/CPP%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E6%A8%A1%E6%9D%BF%E5%85%83%E7%BC%96%E7%A8%8B/" title="CPP学习系列-模板元编程"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">Next</div><div class="info-item-2">CPP学习系列-模板元编程</div></div><div class="info-2"><div class="info-item-1">CPP学习系列-模板元编程本文档系统整理了 C++ 模板与泛型编程的核心概念，按照知识学习的逻辑曲线编排，从基础概念到高级技巧，逐步深入。每个知识点都配有详细的原理解析和代码示例。 另外，本来注释和代码写的挺全面的，但是这里AI生成笔记的时候，AI直接把大部分内容简化了，但是核心代码还在。这也是一种好事，就是精简了笔记的内容，初期阶段使用AI+笔记即可，后期熟悉了直接扫一遍笔记都能回想起来。老少皆宜属于是。  目录 左值与右值：理解参数传递的本质 引用与引用折叠 模板基础 模板特化 SFINAE：替换失败不是错误 完美转发 可变参数模板 CRTP：奇特递归模板模式 类型萃取（type_traits） 编译期计算 非类型模板参数（NTTP） iterator_traits C++20 Concepts：概念约束 C++20 requires：编译期审查机制 智能指针   1. 左值与右值：理解参数传递的本质1.1 什么是左值与右值在 C++ 中，表达式可以分为左值（lvalue）和右值（rvalue）两类：  左值（lvalue）：可以取地址的表达式，有持久的存储位置 右值（rva...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>Related Articles</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab1-utilities/" title="XV6实验系列_Lab1_utilities"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-01</div><div class="info-item-2">XV6实验系列_Lab1_utilities</div></div><div class="info-2"><div class="info-item-1">Lab1_Util 笔记注意：本文所有内容均是XV6-2024年版本：6.1810 &#x2F; Fall 2024  1. Boot xv6(easy)1. make qemu 报错：Couldn’t find a riscv64 version of GCC&#x2F;binutils错误现象：执行 make qemu 时提示找不到 riscv64 架构的 GCC 编译器和 binutils 工具链。 原因分析：XV6 操作系统是为 RISC-V 64 位架构编写的，因此需要专门的交叉编译工具链。交叉编译是指在一个架构（如 x86_64）上编译生成另一个架构（如 riscv64）的可执行文件。普通的 x86 编译器无法生成 RISC-V 指令集的代码。 我的推测： 是因为我的环境里面没有安装 riscv64 的 GCC 编译工具链。（推测正确） 解决方案： 1sudo apt install gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu qemu-system-misc gdb-multiarch  各组件作用说明：    ...</div></div></div></a><a class="pagination-related" href="/QQBlog/2026/04/04/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab2-System-Calls/" title="XV6实验系列-Lab2-System-Calls"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-04</div><div class="info-item-2">XV6实验系列-Lab2-System-Calls</div></div><div class="info-2"><div class="info-item-1">Lab2_System_Calls 笔记 说明：本实验基于 XV6-2024 版本，实验指导书地址：https://pdos.csail.mit.edu/6.1810/2024/labs/syscall.html   1. Using GDB1.1 GDB 配置配置完成后即可使用 GDB 调试 XV6，以下是详细的配置文件说明。 .gdbinit 配置文件123456789101112131415161718192021# 1. 关闭烦人的确认提示（比如退出时的 &quot;Quit anyway? (y/n)&quot;）set confirm off# 2. 强制指定架构为 64 位 RISC-V，防止 GDB 认错 CPUset architecture riscv:rv64# 3. 加载内核的符号表（把内存地址翻译成函数名和变量名）# 注意：这里的路径是相对路径。假设你在 xv6 源码根目录启动 GDB。file ../xv6-labs-2024/kernel/kernel# 4. 连接到 QEMU 的远程调试端口（你最熟悉的那句）target remote localh...</div></div></div></a><a class="pagination-related" href="/QQBlog/2026/04/09/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab3-Pagetable/" title="XV6实验系列-Lab3-Pagetable"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-09</div><div class="info-item-2">XV6实验系列-Lab3-Pagetable</div></div><div class="info-2"><div class="info-item-1">Lab3-Page Table 笔记本实验主要围绕 RISC-V 的分页机制展开，深入探讨虚拟地址到物理地址的转换过程、页表的遍历与打印、以及超级页（Superpage）的应用。通过这些实验，我们可以更好地理解操作系统如何利用硬件分页机制实现内存的虚拟化。 说明：本实验基于 XV6-2024 版本，实验指导书地址：https://pdos.csail.mit.edu/6.1810/2024/labs/syscall.html  1. Inspect a User-Process Page Table实验输出分析运行 pgtbltest 后，我们得到了以下输出： 1234567891011121314151617181920212223242526$ pgtbltestprint_pgtbl startingva 0x0 pte 0x21FC885B pa 0x87F22000 perm 0x5Bva 0x1000 pte 0x21FC7C17 pa 0x87F1F000 perm 0x17va 0x2000 pte 0x21FC7807 pa 0x87F1E000 perm 0x...</div></div></div></a><a class="pagination-related" href="/QQBlog/2026/04/01/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab-Tools/" title="XV6实验系列-Lab-Tools"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-01</div><div class="info-item-2">XV6实验系列-Lab-Tools</div></div><div class="info-2"><div class="info-item-1">Tools 笔记注意：本文所有内容均是XV6-2024年版本：6.1810 &#x2F; Fall 2024  1. QEMU 安装与版本问题版本要求对比：    项目 我的版本 官方要求版本    QEMU 6.2.0 → 7.2.0 7.2.0   问题描述：最初使用 apt 安装的 QEMU 版本是 6.2.0，但 XV6 官方要求 7.2.0 版本。 为什么 XV6 对 QEMU 版本有要求？ XV6 操作系统会用到 RISC-V 架构的一些较新的扩展特性，这些特性需要 QEMU 模拟器提供支持。主要涉及：  sstc 扩展 (Supervisor Software Timer Counter)：允许 S 模式直接访问定时器 其他 RISC-V 特权模式扩展：新版 RISC-V 规范定义的 CSR 寄存器和中断处理机制  如果 QEMU 版本过低，不支持这些扩展，会导致：  时钟中断无法正常工作 系统启动后卡死，无法进入 shell 某些 CSR 寄存器读写失败  解决方案：由于 apt 源中的 QEMU 版本较旧（6.2.0），需要从源码编译安装 7.2.0 版本。 从...</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> Comments</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/QQBlog/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/QQBlog/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">QQLaoban</div><div class="author-info-description"></div><div class="site-data"><a href="/QQBlog/archives/"><div class="headline">Articles</div><div class="length-num">9</div></a><a href="/QQBlog/tags/"><div class="headline">Tags</div><div class="length-num">4</div></a><a href="/QQBlog/categories/"><div class="headline">Categories</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/q1375854021"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>Announcement</span></div><div class="announcement_content">This is my Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>Contents</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#ELF-%E6%AE%B5%EF%BC%88Section%EF%BC%89%E5%AE%8C%E6%95%B4%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0"><span class="toc-number">1.</span> <span class="toc-text">ELF 段（Section）完整学习笔记</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81ELF-%E6%96%87%E4%BB%B6%E5%9F%BA%E7%A1%80%E4%B8%8E%E5%85%83%E4%BF%A1%E6%81%AF%E6%AE%B5"><span class="toc-number">1.1.</span> <span class="toc-text">一、ELF 文件基础与元信息段</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#0-NULL-%E6%AE%B5%EF%BC%88%E5%93%A8%E5%85%B5%E6%AE%B5%EF%BC%89"><span class="toc-number">1.1.1.</span> <span class="toc-text">[0] NULL 段（哨兵段）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#29-comment-%E2%80%94-%E5%B7%A5%E5%85%B7%E9%93%BE%E6%8C%87%E7%BA%B9%E6%AE%B5"><span class="toc-number">1.1.2.</span> <span class="toc-text">[29] .comment — 工具链指纹段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#31-shstrtab-%E2%80%94-%E6%AE%B5%E5%90%8D%E5%AD%97%E7%AC%A6%E4%B8%B2%E8%A1%A8"><span class="toc-number">1.1.3.</span> <span class="toc-text">[31] .shstrtab — 段名字符串表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#32-interp-%E2%80%94-%E5%8A%A8%E6%80%81%E9%93%BE%E6%8E%A5%E5%99%A8%E8%B7%AF%E5%BE%84%E6%AE%B5"><span class="toc-number">1.1.4.</span> <span class="toc-text">[32] .interp — 动态链接器路径段</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81Note-%E6%AE%B5%EF%BC%9A%E5%AE%89%E5%85%A8%E3%80%81%E8%BA%AB%E4%BB%BD%E4%B8%8E%E5%85%BC%E5%AE%B9%E6%80%A7%E5%85%83%E6%95%B0%E6%8D%AE"><span class="toc-number">1.2.</span> <span class="toc-text">二、Note 段：安全、身份与兼容性元数据</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-note-gnu-property-%E2%80%94-CPU-%E5%AE%89%E5%85%A8%E7%89%B9%E6%80%A7%E5%A3%B0%E6%98%8E%E6%AE%B5"><span class="toc-number">1.2.1.</span> <span class="toc-text">[1] .note.gnu.property — CPU 安全特性声明段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-note-gnu-build-id-%E2%80%94-%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%95%B0%E5%AD%97%E8%BA%AB%E4%BB%BD%E8%AF%81"><span class="toc-number">1.2.2.</span> <span class="toc-text">[2] .note.gnu.build-id — 二进制数字身份证</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#39-note-ABI-tag-%E2%80%94-ABI-%E5%85%BC%E5%AE%B9%E6%80%A7%E6%A0%87%E7%AD%BE"><span class="toc-number">1.2.3.</span> <span class="toc-text">[39] .note.ABI-tag — ABI 兼容性标签</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%8A%A8%E6%80%81%E9%93%BE%E6%8E%A5%E6%A0%B8%E5%BF%83%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD"><span class="toc-number">1.3.</span> <span class="toc-text">三、动态链接核心基础设施</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#21-dynamic-%E2%80%94-%E5%8A%A8%E6%80%81%E9%85%8D%E7%BD%AE%E6%B8%85%E5%8D%95"><span class="toc-number">1.3.1.</span> <span class="toc-text">[21] .dynamic — 动态配置清单</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-dynsym-%E2%80%94-%E5%8A%A8%E6%80%81%E7%AC%A6%E5%8F%B7%E8%A1%A8"><span class="toc-number">1.3.2.</span> <span class="toc-text">[4] .dynsym — 动态符号表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-dynstr-%E2%80%94-%E5%8A%A8%E6%80%81%E5%AD%97%E7%AC%A6%E4%B8%B2%E8%A1%A8"><span class="toc-number">1.3.3.</span> <span class="toc-text">[5] .dynstr — 动态字符串表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-gnu-hash-%E2%80%94-GNU-%E5%93%88%E5%B8%8C%E5%8A%A0%E9%80%9F%E7%B4%A2%E5%BC%95"><span class="toc-number">1.3.4.</span> <span class="toc-text">[3] .gnu.hash — GNU 哈希加速索引</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-gnu-version-%E2%80%94-%E7%AC%A6%E5%8F%B7%E7%89%88%E6%9C%AC%E8%A1%A8"><span class="toc-number">1.3.5.</span> <span class="toc-text">[6] .gnu.version — 符号版本表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-gnu-version-r-%E2%80%94-%E7%89%88%E6%9C%AC%E9%9C%80%E6%B1%82%E8%A1%A8"><span class="toc-number">1.3.6.</span> <span class="toc-text">[7] .gnu.version_r — 版本需求表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%EF%BC%9A%E5%90%8C%E4%B8%80%E5%85%B1%E4%BA%AB%E5%BA%93%E6%8F%90%E4%BE%9B%E4%B8%A4%E4%B8%AA%E7%89%88%E6%9C%AC%E7%9A%84-API"><span class="toc-number">1.3.7.</span> <span class="toc-text">实战：同一共享库提供两个版本的 API</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%EF%BC%9A%E4%B8%BB%E7%A8%8B%E5%BA%8F%E5%BC%BA%E5%88%B6%E7%BB%91%E5%AE%9A%E6%8C%87%E5%AE%9A%E7%89%88%E6%9C%AC"><span class="toc-number">1.3.8.</span> <span class="toc-text">实战：主程序强制绑定指定版本</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E9%87%8D%E5%AE%9A%E4%BD%8D%EF%BC%9A%E4%BB%8E%E7%9B%B8%E5%AF%B9%E5%9D%90%E6%A0%87%E5%88%B0%E7%BB%9D%E5%AF%B9%E5%9C%B0%E5%9D%80"><span class="toc-number">1.4.</span> <span class="toc-text">四、重定位：从相对坐标到绝对地址</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#8-rela-dyn-%E2%80%94-%E6%95%B0%E6%8D%AE%E6%AE%B5%E9%87%8D%E5%AE%9A%E4%BD%8D%E8%A1%A8"><span class="toc-number">1.4.1.</span> <span class="toc-text">[8] .rela.dyn — 数据段重定位表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#9-rela-plt-%E2%80%94-%E5%87%BD%E6%95%B0%E5%BB%B6%E8%BF%9F%E7%BB%91%E5%AE%9A%E9%87%8D%E5%AE%9A%E4%BD%8D%E8%A1%A8"><span class="toc-number">1.4.2.</span> <span class="toc-text">[9] .rela.plt — 函数延迟绑定重定位表</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81PLT-%E5%AE%B6%E6%97%8F%EF%BC%9A%E8%BF%87%E7%A8%8B%E9%93%BE%E6%8E%A5%E7%9A%84%E4%B8%89%E5%B1%82%E8%B7%B3%E6%9D%BF"><span class="toc-number">1.5.</span> <span class="toc-text">五、PLT 家族：过程链接的三层跳板</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#10-plt-%E2%80%94-%E8%BF%87%E7%A8%8B%E9%93%BE%E6%8E%A5%E8%A1%A8"><span class="toc-number">1.5.1.</span> <span class="toc-text">[10] .plt — 过程链接表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#11-plt-got-%E2%80%94-%E4%BC%98%E5%8C%96%E7%89%88%E5%BF%AB%E9%80%9F%E8%B7%B3%E6%9D%BF"><span class="toc-number">1.5.2.</span> <span class="toc-text">[11] .plt.got — 优化版快速跳板</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#12-plt-sec-%E2%80%94-%E5%AE%89%E5%85%A8-PLT"><span class="toc-number">1.5.3.</span> <span class="toc-text">[12] .plt.sec — 安全 PLT</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E4%BB%A3%E7%A0%81%E4%B8%8E%E6%95%B0%E6%8D%AE%E6%AE%B5"><span class="toc-number">1.6.</span> <span class="toc-text">六、代码与数据段</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#16-text-%E2%80%94-%E4%BB%A3%E7%A0%81%E6%AE%B5"><span class="toc-number">1.6.1.</span> <span class="toc-text">[16] .text — 代码段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#17-rodata-%E2%80%94-%E5%8F%AA%E8%AF%BB%E6%95%B0%E6%8D%AE%E6%AE%B5"><span class="toc-number">1.6.2.</span> <span class="toc-text">[17] .rodata — 只读数据段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#24-data-%E2%80%94-%E5%B7%B2%E5%88%9D%E5%A7%8B%E5%8C%96%E6%95%B0%E6%8D%AE%E6%AE%B5"><span class="toc-number">1.6.3.</span> <span class="toc-text">[24] .data — 已初始化数据段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#25-bss-%E2%80%94-%E9%9B%B6%E5%88%9D%E5%A7%8B%E5%8C%96%E6%95%B0%E6%8D%AE%E6%AE%B5"><span class="toc-number">1.6.4.</span> <span class="toc-text">[25] .bss — 零初始化数据段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#43-tdata-%E2%80%94-%E7%BA%BF%E7%A8%8B%E5%B1%80%E9%83%A8%E5%B7%B2%E5%88%9D%E5%A7%8B%E5%8C%96%E6%95%B0%E6%8D%AE%E6%AE%B5"><span class="toc-number">1.6.5.</span> <span class="toc-text">[43] .tdata — 线程局部已初始化数据段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#44-tbss-%E2%80%94-%E7%BA%BF%E7%A8%8B%E5%B1%80%E9%83%A8%E9%9B%B6%E5%88%9D%E5%A7%8B%E5%8C%96%E6%95%B0%E6%8D%AE%E6%AE%B5"><span class="toc-number">1.6.6.</span> <span class="toc-text">[44] .tbss — 线程局部零初始化数据段</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B8%8E%E6%B8%85%E7%90%86%E6%AE%B5"><span class="toc-number">1.7.</span> <span class="toc-text">七、初始化与清理段</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#13-init-%E2%80%94-%E5%89%8D%E7%BD%AE%E5%88%9D%E5%A7%8B%E5%8C%96%E4%BB%A3%E7%A0%81%E6%AE%B5"><span class="toc-number">1.7.1.</span> <span class="toc-text">[13] .init — 前置初始化代码段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#14-fini-%E2%80%94-%E5%90%8E%E7%BD%AE%E6%B8%85%E7%90%86%E4%BB%A3%E7%A0%81%E6%AE%B5"><span class="toc-number">1.7.2.</span> <span class="toc-text">[14] .fini — 后置清理代码段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#15-init-array-%E4%B8%8E-fini-array-%E2%80%94-%E7%8E%B0%E4%BB%A3%E5%8C%96%E5%88%9D%E5%A7%8B%E5%8C%96%E6%9C%BA%E5%88%B6"><span class="toc-number">1.7.3.</span> <span class="toc-text">[15] .init_array 与 .fini_array — 现代化初始化机制</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86%E4%B8%8E%E6%A0%88%E5%9B%9E%E6%BA%AF%E6%AE%B5"><span class="toc-number">1.8.</span> <span class="toc-text">八、异常处理与栈回溯段</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#18-eh-frame-hdr-%E2%80%94-%E5%BC%82%E5%B8%B8%E5%B8%A7%E5%A4%B4%E9%83%A8%E7%B4%A2%E5%BC%95"><span class="toc-number">1.8.1.</span> <span class="toc-text">[18] .eh_frame_hdr — 异常帧头部索引</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#19-eh-frame-%E2%80%94-%E5%BC%82%E5%B8%B8%E5%B8%A7%E4%BF%A1%E6%81%AF"><span class="toc-number">1.8.2.</span> <span class="toc-text">[19] .eh_frame — 异常帧信息</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#20-gcc-except-table-%E2%80%94-%E8%AF%AD%E8%A8%80%E7%89%B9%E5%AE%9A%E6%95%B0%E6%8D%AE%E5%8C%BA-LSDA"><span class="toc-number">1.8.3.</span> <span class="toc-text">[20] .gcc_except_table — 语言特定数据区 (LSDA)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E5%85%A8%E5%B1%80%E5%81%8F%E7%A7%BB%E8%A1%A8-GOT-%E5%AE%B6%E6%97%8F"><span class="toc-number">1.9.</span> <span class="toc-text">九、全局偏移表 (GOT) 家族</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#22-got-%E2%80%94-%E5%85%A8%E5%B1%80%E5%81%8F%E7%A7%BB%E8%A1%A8"><span class="toc-number">1.9.1.</span> <span class="toc-text">[22] .got — 全局偏移表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#23-got-plt-%E2%80%94-%E5%87%BD%E6%95%B0%E5%9C%B0%E5%9D%80%E6%87%92%E5%8A%A0%E8%BD%BD%E8%A1%A8"><span class="toc-number">1.9.2.</span> <span class="toc-text">[23] .got.plt — 函数地址懒加载表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#48-Full-RELRO-%E4%B8%8B%E7%9A%84-got-plt"><span class="toc-number">1.9.3.</span> <span class="toc-text">[48] Full RELRO 下的 .got.plt</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E7%AC%A6%E5%8F%B7%E8%A1%A8%E4%B8%8E%E5%AD%97%E7%AC%A6%E4%B8%B2%E8%A1%A8"><span class="toc-number">1.10.</span> <span class="toc-text">十、符号表与字符串表</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#30-symtab-%E2%80%94-%E5%AE%8C%E6%95%B4%E7%AC%A6%E5%8F%B7%E8%A1%A8"><span class="toc-number">1.10.1.</span> <span class="toc-text">[30] .symtab — 完整符号表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#30-strtab-%E2%80%94-%E5%AD%97%E7%AC%A6%E4%B8%B2%E8%A1%A8"><span class="toc-number">1.10.2.</span> <span class="toc-text">[30] .strtab — 字符串表</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%B8%80%E3%80%81%E8%B0%83%E8%AF%95%E4%BF%A1%E6%81%AF%E6%AE%B5-DWARF"><span class="toc-number">1.11.</span> <span class="toc-text">十一、调试信息段 (DWARF)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#33-debug-aranges-%E2%80%94-%E5%9C%B0%E5%9D%80%E8%8C%83%E5%9B%B4%E6%9F%A5%E6%89%BE%E8%A1%A8"><span class="toc-number">1.11.1.</span> <span class="toc-text">[33] .debug_aranges — 地址范围查找表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#34-debug-info-%E2%80%94-%E6%A0%B8%E5%BF%83%E8%B0%83%E8%AF%95%E4%BF%A1%E6%81%AF"><span class="toc-number">1.11.2.</span> <span class="toc-text">[34] .debug_info — 核心调试信息</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#35-debug-abbrev-%E2%80%94-%E7%BC%A9%E5%86%99%E8%A1%A8"><span class="toc-number">1.11.3.</span> <span class="toc-text">[35] .debug_abbrev — 缩写表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#36-debug-line-%E2%80%94-%E8%A1%8C%E5%8F%B7%E6%98%A0%E5%B0%84%E8%A1%A8"><span class="toc-number">1.11.4.</span> <span class="toc-text">[36] .debug_line — 行号映射表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#37-debug-str-%E2%80%94-%E8%B0%83%E8%AF%95%E5%AD%97%E7%AC%A6%E4%B8%B2%E8%A1%A8"><span class="toc-number">1.11.5.</span> <span class="toc-text">[37] .debug_str — 调试字符串表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#38-debug-line-str-%E2%80%94-%E8%A1%8C%E5%8F%B7%E8%B7%AF%E5%BE%84%E5%AD%97%E7%AC%A6%E4%B8%B2%E8%A1%A8"><span class="toc-number">1.11.6.</span> <span class="toc-text">[38] .debug_line_str — 行号路径字符串表</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81%E5%85%B6%E4%BB%96%E7%89%B9%E6%AE%8A%E6%AE%B5"><span class="toc-number">1.12.</span> <span class="toc-text">十二、其他特殊段</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#46-gnu-lto-%E2%80%94-%E9%93%BE%E6%8E%A5%E6%97%B6%E4%BC%98%E5%8C%96%E4%B8%AD%E9%97%B4%E4%BB%A3%E7%A0%81%E6%AE%B5"><span class="toc-number">1.12.1.</span> <span class="toc-text">[46] .gnu.lto — 链接时优化中间代码段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#41-rodata-cst16-rodata-str1-1-%E2%80%94-%E7%89%B9%E6%AE%8A%E5%8F%AA%E8%AF%BB%E6%AE%B5"><span class="toc-number">1.12.2.</span> <span class="toc-text">[41] .rodata.cst16 &#x2F; .rodata.str1.1 — 特殊只读段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#42-plt-got-vs-plt-sec-%E2%80%94-%E6%9E%B6%E6%9E%84%E7%9B%B8%E5%85%B3-PLT-%E5%8F%98%E4%BD%93"><span class="toc-number">1.12.3.</span> <span class="toc-text">[42] .plt.got vs .plt.sec — 架构相关 PLT 变体</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#45-tdata1-%E2%80%94-%E6%89%A9%E5%B1%95%E6%AE%B5"><span class="toc-number">1.12.4.</span> <span class="toc-text">[45] .tdata1 — 扩展段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#40-rel-dyn-%E2%80%94-rela-dyn-%E7%9A%84%E5%8F%98%E4%BD%93"><span class="toc-number">1.12.5.</span> <span class="toc-text">[40] .rel.dyn — .rela.dyn 的变体</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%84%E5%BD%95%EF%BC%9A%E6%AE%B5%E7%B4%A2%E5%BC%95%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="toc-number">1.13.</span> <span class="toc-text">附录：段索引速查表</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>Recent Posts</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/06/30/%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5-1-%E6%AE%B5/" title="编译与链接-1-段">编译与链接-1-段</a><time datetime="2026-06-29T16:56:23.000Z" title="Created 2026-06-30 00:56:23">2026-06-30</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/06/01/CPP%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E6%A8%A1%E6%9D%BF%E5%85%83%E7%BC%96%E7%A8%8B/" title="CPP学习系列-模板元编程">CPP学习系列-模板元编程</a><time datetime="2026-05-31T17:05:36.000Z" title="Created 2026-06-01 01:05:36">2026-06-01</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/05/06/GPU%E5%AD%A6%E4%B9%A0-GPU%E7%BB%84%E6%88%90%E4%B8%8E%E5%85%B3%E9%94%AE%E9%83%A8%E5%88%86%E5%8E%9F%E7%90%86/" title="GPU学习-GPU组成与关键部分原理">GPU学习-GPU组成与关键部分原理</a><time datetime="2026-05-06T12:03:15.000Z" title="Created 2026-05-06 20:03:15">2026-05-06</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/05/03/Python%E5%AE%98%E6%96%B9%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%96%99%E7%AC%94%E8%AE%B0/" title="Python学习系列-Python官方学习资料笔记">Python学习系列-Python官方学习资料笔记</a><time datetime="2026-05-03T09:13:01.000Z" title="Created 2026-05-03 17:13:01">2026-05-03</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/04/09/XV6%E5%AE%9E%E9%AA%8C%E7%B3%BB%E5%88%97-Lab3-Pagetable/" title="XV6实验系列-Lab3-Pagetable">XV6实验系列-Lab3-Pagetable</a><time datetime="2026-04-09T08:06:26.000Z" title="Created 2026-04-09 16:06:26">2026-04-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By QQLaoban</span><span class="framework-info"><span>Framework </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>Theme </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="Reading Mode"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="Toggle Between Light and Dark Mode"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="Toggle Between Single-column and Double-column"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="Settings"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="Table of Contents"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="Scroll to Comments"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="Back to Top"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/QQBlog/js/utils.js?v=5.5.4"></script><script src="/QQBlog/js/main.js?v=5.5.4"></script><div class="js-pjax"><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'q1375854021/QQBlog',
+      'data-repo-id': 'R_kgDORoHzLw',
+      'data-category-id': 'DIC_kwDORoHzL84C4f2N',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
