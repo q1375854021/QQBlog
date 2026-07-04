@@ -1,0 +1,567 @@
+<!DOCTYPE html><html lang="en" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>编译与链接-3-编译与汇编 | Hexo</title><meta name="author" content="QQLaoban"><meta name="copyright" content="QQLaoban"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="编译与汇编编译器的核心任务只有一个：把高级语言（C&#x2F;C++ 纯文本）翻译成汇编语言（Assembly Code）。 在 GCC 中，这个过程可以通过 -S 选项来观察： 1gcc -S main.cpp -o main.s  运行后，你会得到一个 main.s 文件，里面全是 mov, push, add 等低级汇编指令。 编译器在后台干的 5 件硬核事在这个阶段，编译器（在 GCC 中">
+<meta property="og:type" content="article">
+<meta property="og:title" content="编译与链接-3-编译与汇编">
+<meta property="og:url" content="https://q1375854021.github.io/QQBlog/2026/05/06/Compile-And-Linker-3-Compile_And_Assembler/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="编译与汇编编译器的核心任务只有一个：把高级语言（C&#x2F;C++ 纯文本）翻译成汇编语言（Assembly Code）。 在 GCC 中，这个过程可以通过 -S 选项来观察： 1gcc -S main.cpp -o main.s  运行后，你会得到一个 main.s 文件，里面全是 mov, push, add 等低级汇编指令。 编译器在后台干的 5 件硬核事在这个阶段，编译器（在 GCC 中">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://q1375854021.github.io/QQBlog/img/butterfly-icon.png">
+<meta property="article:published_time" content="2026-05-06T12:03:15.000Z">
+<meta property="article:modified_time" content="2026-07-04T14:12:25.443Z">
+<meta property="article:author" content="QQLaoban">
+<meta property="article:tag" content="编译与链接学习系列">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://q1375854021.github.io/QQBlog/img/butterfly-icon.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "编译与链接-3-编译与汇编",
+  "url": "https://q1375854021.github.io/QQBlog/2026/05/06/Compile-And-Linker-3-Compile_And_Assembler/",
+  "image": "https://q1375854021.github.io/QQBlog/img/butterfly-icon.png",
+  "datePublished": "2026-05-06T12:03:15.000Z",
+  "dateModified": "2026-07-04T14:12:25.443Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "QQLaoban",
+      "url": "https://q1375854021.github.io/QQBlog"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/QQBlog/img/favicon.png"><link rel="canonical" href="https://q1375854021.github.io/QQBlog/2026/05/06/Compile-And-Linker-3-Compile_And_Assembler/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/QQBlog/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/QQBlog/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: 'Copy Successful',
+    error: 'Copy Failed',
+    noSupport: 'Browser Not Supported'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: 'Just now',
+    min: 'minutes ago',
+    hour: 'hours ago',
+    day: 'days ago',
+    month: 'months ago'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: 'Load More'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '编译与链接-3-编译与汇编',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/QQBlog/"><span class="site-name">Hexo</span></a><a class="nav-page-title" href="/QQBlog/"><span class="site-name">编译与链接-3-编译与汇编</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  Back to Home</span></span></a></span><div id="menus"></div></nav><div id="post-info"><h1 class="post-title">编译与链接-3-编译与汇编</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">Created</span><time class="post-meta-date-created" datetime="2026-05-06T12:03:15.000Z" title="Created 2026-05-06 20:03:15">2026-05-06</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">Updated</span><time class="post-meta-date-updated" datetime="2026-07-04T14:12:25.443Z" title="Updated 2026-07-04 22:12:25">2026-07-04</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">Post Views:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="编译与汇编"><a href="#编译与汇编" class="headerlink" title="编译与汇编"></a>编译与汇编</h1><p>编译器的核心任务只有一个：<strong>把高级语言（C&#x2F;C++ 纯文本）翻译成汇编语言（Assembly Code）。</strong></p>
+<p>在 GCC 中，这个过程可以通过 <code>-S</code> 选项来观察：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gcc -S main.cpp -o main.s</span><br></pre></td></tr></table></figure>
+
+<p>运行后，你会得到一个 <code>main.s</code> 文件，里面全是 <code>mov</code>, <code>push</code>, <code>add</code> 等低级汇编指令。</p>
+<h2 id="编译器在后台干的-5-件硬核事"><a href="#编译器在后台干的-5-件硬核事" class="headerlink" title="编译器在后台干的 5 件硬核事"></a>编译器在后台干的 5 件硬核事</h2><p>在这个阶段，编译器（在 GCC 中其实是一个叫 <code>cc1</code> 或 <code>cc1plus</code> 的内部程序）会把你的代码送进一条精密的工业流水线：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">源码 ➔ [词法分析] ➔ [语法分析] ➔ [语义分析] ➔ [中间代码生成与优化] ➔ [汇编代码生成] ➔ 汇编代码</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-词法分析-Lexical-Analysis"><a href="#1-词法分析-Lexical-Analysis" class="headerlink" title="1. 词法分析 (Lexical Analysis)"></a>1. 词法分析 (Lexical Analysis)</h3><ul>
+<li><strong>做什么</strong>：把你的代码切碎。</li>
+<li><strong>细节</strong>：它把一长串字符串切成一个个有意义的最小单元（Tokens）。比如 <code>int A = 2;</code> 会被切成：<code>关键字(int)</code>、<code>标识符(A)</code>、<code>操作符(=)</code>、<code>常数(2)</code>、<code>分号(;)</code>。</li>
+</ul>
+<h3 id="2-语法分析-Parsing"><a href="#2-语法分析-Parsing" class="headerlink" title="2. 语法分析 (Parsing)"></a>2. 语法分析 (Parsing)</h3><ul>
+<li><strong>做什么</strong>：检查你有没有语法错误。</li>
+<li><strong>细节</strong>：它把这些 Tokens 组合成一棵<strong>抽象语法树（AST, Abstract Syntax Tree）</strong>。如果你的括号没闭合，或者少写了分号，语法树就建不起来，编译器就会在这里当场报错（Syntax Error）。</li>
+</ul>
+<h3 id="3-语义分析-Semantic-Analysis"><a href="#3-语义分析-Semantic-Analysis" class="headerlink" title="3. 语义分析 (Semantic Analysis)"></a>3. 语义分析 (Semantic Analysis)</h3><ul>
+<li><p><strong>做什么</strong>：检查代码在逻辑上是否说得通（类型检查、作用域检查）。</p>
+</li>
+<li><p><strong>细节</strong>：语法没问题，不代表逻辑没问题。例如：</p>
+<p>C++</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">int* ptr = 100; // 语法对，但语义错：不能把 int 直接赋给指针</span><br><span class="line">A = 2;          // 如果 A 之前没声明，语义分析就会报错：&#x27;A&#x27; was not declared in this </span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="4-中间代码生成与优化-IR-Optimization-最核心的一步"><a href="#4-中间代码生成与优化-IR-Optimization-最核心的一步" class="headerlink" title="4. 中间代码生成与优化 (IR &amp; Optimization)  最核心的一步"></a>4. 中间代码生成与优化 (IR &amp; Optimization)  <strong>最核心的一步</strong></h3><ul>
+<li><strong>做什么</strong>：脱离具体的 CPU 架构，对代码逻辑进行疯狂优化。</li>
+<li><strong>细节</strong>：编译器会把语法树转成一种“中间代码”（IR, Intermediate Representation）。在这个阶段，大名鼎鼎的编译优化（<code>-O1</code>, <code>-O2</code>, <code>-O3</code>）开始发威。<ul>
+<li><strong>常量折叠</strong>：你写 <code>int x = 3 + 5;</code>，优化器直接把它改成 <code>int x = 8;</code>。</li>
+<li><strong>死代码消除</strong>：你写了 <code>if(false) &#123; ... &#125;</code>，优化器直接把里面的代码打包扔进垃圾桶。</li>
+<li><strong>循环展开、内联函数</strong>：把函数调用直接拍平到调用处，减少压栈开销。</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-目标代码生成-Code-Generation"><a href="#5-目标代码生成-Code-Generation" class="headerlink" title="5. 目标代码生成 (Code Generation)"></a>5. 目标代码生成 (Code Generation)</h3><ul>
+<li><strong>做什么</strong>：根据你的目标硬件（x86-64, ARM, MIPS），翻译成对应的汇编代码。</li>
+<li><strong>细节</strong>：将优化后的中间代码映射到具体的 CPU 寄存器上，生成最终的 <code>.s</code> 汇编文件。</li>
+</ul>
+<hr>
+<h2 id="编译阶段你必须认识的-GCC-核心参数"><a href="#编译阶段你必须认识的-GCC-核心参数" class="headerlink" title="编译阶段你必须认识的 GCC 核心参数"></a>编译阶段你必须认识的 GCC 核心参数</h2><p>在实际工程（Makefile&#x2F;CMake）中，我们通过以下参数来控制编译阶段：</p>
+<table>
+<thead>
+<tr>
+<th align="left">参数</th>
+<th align="left">作用</th>
+<th align="left">工程实用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong><code>-S</code></strong></td>
+<td align="left">只编译，不汇编</td>
+<td align="left">查看编译器到底把你的高级代码优化成了什么样。</td>
+</tr>
+<tr>
+<td align="left"><strong><code>-O0 / -O2 / -O3</code></strong></td>
+<td align="left">优化等级</td>
+<td align="left">调试用 <code>-O0</code>（保留所有变量），发布用 <code>-O2</code> 或 <code>-O3</code>（性能最高）。</td>
+</tr>
+<tr>
+<td align="left"><strong><code>-Wall -Wextra</code></strong></td>
+<td align="left">开启几乎所有警告</td>
+<td align="left"><strong>工程必带！</strong> 让编译器化身严厉的导师，消灭潜伏的 Bug。</td>
+</tr>
+<tr>
+<td align="left"><strong><code>-std=c++17</code></strong></td>
+<td align="left">指定语言标准</td>
+<td align="left">告诉编译器用哪一代的语法规则去解析 AST。</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="词法分析"><a href="#词法分析" class="headerlink" title="词法分析"></a>词法分析</h2><h3 id="什么是词法分析？"><a href="#什么是词法分析？" class="headerlink" title="什么是词法分析？"></a>什么是词法分析？</h3><p><strong>词法分析（Lexical Analysis）**是编译过程的**第一步**。它的任务是：</strong>把一长串连续的代码文本（字符串），切碎成一个个有独立语义的“最小单元”，并贴上标签。**</p>
+<p>在编译原理中，这些切碎后的最小单元被称为 <strong>Token（词法记号）</strong>。负责干这个活的程序叫做<strong>词法分析器（Lexer 或 Scanner）</strong>。</p>
+<p>你可以把它类比为<strong>英语翻译中的“断词”</strong>。比如有一串没有空格的英文字符 <code>Ilovecomputer</code>，词法分析器就会把它切分成 <code>I</code> (代词)、<code>love</code> (动词)、<code>computer</code> (名词)。</p>
+<h3 id="词法分析的具体过程（硬核拆解）"><a href="#词法分析的具体过程（硬核拆解）" class="headerlink" title="词法分析的具体过程（硬核拆解）"></a>词法分析的具体过程（硬核拆解）</h3><p>假设编译器看到了你写的一行 C++ 代码：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> A = <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+<p>对于操作系统来说，这只是一个长度为 10 的普通字符串：<code>&#39;i&#39;,&#39;n&#39;,&#39;t&#39;,&#39; &#39;,&#39;A&#39;,&#39; &#39;,&#39;=&#39;,&#39; &#39;,&#39;2&#39;,&#39;;&#39;</code>。</p>
+<p>词法分析器从左到右逐个字符扫描，利用有限状态自动机（FSA）的数学模型，最终把这个字符串转换成如下的 <strong>Token 序列</strong>：</p>
+<table>
+<thead>
+<tr>
+<th><strong>原始文本</strong></th>
+<th><strong>转换为 Token 类型</strong></th>
+<th><strong>Token 附加值 (Value)</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>int</code></td>
+<td><strong><code>KEYWORD</code></strong> (关键字)</td>
+<td>无</td>
+</tr>
+<tr>
+<td><code> </code> (空格)</td>
+<td><em>(直接丢弃，不生成 Token)</em></td>
+<td>无</td>
+</tr>
+<tr>
+<td><code>A</code></td>
+<td><strong><code>IDENTIFIER</code></strong> (标识符)</td>
+<td>字符串 <code>&quot;A&quot;</code></td>
+</tr>
+<tr>
+<td><code>=</code></td>
+<td><strong><code>ASSIGN_OP</code></strong> (赋值操作符)</td>
+<td>无</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td><strong><code>INTEGER_LITERAL</code></strong> (整型字面量)</td>
+<td>整数 <code>2</code></td>
+</tr>
+<tr>
+<td><code>;</code></td>
+<td><strong><code>SEMICOLON</code></strong> (分号)</td>
+<td>无</td>
+</tr>
+</tbody></table>
+<p>最终，这行代码在编译器眼里就变成了一个结构化的<strong>链表或数组</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[KEYWORD] ➔ [IDENTIFIER(&quot;A&quot;)] ➔ [ASSIGN_OP] ➔ [INTEGER_LITERAL(2)] ➔ [SEMICOLON]</span><br></pre></td></tr></table></figure>
+
+<h3 id="它的核心作用是什么？"><a href="#它的核心作用是什么？" class="headerlink" title="它的核心作用是什么？"></a>它的核心作用是什么？</h3><p>为什么不直接拿字符串去生成汇编，非要多此一举切成 Token 呢？它在工程上有三个不可替代的作用：</p>
+<h4 id="1-过滤噪声，减轻后续流水线的负担"><a href="#1-过滤噪声，减轻后续流水线的负担" class="headerlink" title="1. 过滤噪声，减轻后续流水线的负担"></a>1. 过滤噪声，减轻后续流水线的负担</h4><p>代码里有大量的**空格、换行符、制表符（\t）**以及**注释**。这些东西是写给人类看的，CPU 根本不需要。</p>
+<ul>
+<li>词法分析器会在这个阶段<strong>把所有的注释和无用空格全部过滤掉</strong>。</li>
+<li>后面的“语法分析器”拿到的直接就是纯净的 Token 流，不需要再分心去处理“这里是不是有个注释”这种低级问题。</li>
+</ul>
+<h4 id="2-初步分类，建立符号表雏形"><a href="#2-初步分类，建立符号表雏形" class="headerlink" title="2. 初步分类，建立符号表雏形"></a>2. 初步分类，建立符号表雏形</h4><p>当词法分析器遇到 <code>A</code> 时，它知道这是一个“标识符”（用户起的变量名或函数名）。它会把 <code>A</code> 收集起来，为后面语义分析要用的符号表（Symbol Table）打下基础。</p>
+<h4 id="3-拦截最基础的“非法字符”错误"><a href="#3-拦截最基础的“非法字符”错误" class="headerlink" title="3. 拦截最基础的“非法字符”错误"></a>3. 拦截最基础的“非法字符”错误</h4><p>如果你的代码里不小心混入了极其离谱的字符（比如手抖打了个中文分号 <code>；</code>，或者特殊符号 <code>@</code>），词法分析器在构建自动机时会失败，从而当场中断编译，抛出 <strong>“Lexical Error”（词法错误：未知字符）</strong>。</p>
+<h3 id="💡-边界思考：它不能做什么？"><a href="#💡-边界思考：它不能做什么？" class="headerlink" title="💡 边界思考：它不能做什么？"></a>💡 边界思考：它<strong>不能</strong>做什么？</h3><p>词法分析的眼光非常局限，它<strong>只认单词，不看句子</strong>。</p>
+<p>比如你写了这样一行毁灭性的代码：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="type">int</span> = = <span class="number">2</span> A ;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>词法分析器：</strong> “没问题！<code>int</code> 是关键字，<code>=</code> 是操作符，<code>2</code> 是数字… 每一个词我都认识，词法通过！”</li>
+<li><strong>结果：</strong> 这一行代码会顺利通过词法分析。直到进入下一步<strong>语法分析</strong>时，编译器才会发现“这些词组合在一起根本不符合 C++ 语法规则”，然后报错。</li>
+</ul>
+<p>简单来说，词法分析只负责检查“有没有错别字”<strong>，至于</strong>“句式对不对”，那是下一步语法分析（Parsing）的职责了。</p>
+<h2 id="语法分析"><a href="#语法分析" class="headerlink" title="语法分析"></a>语法分析</h2><p>如果说<strong>词法分析</strong>是把一堆字母拼成“单词”，那么**语法分析（Syntax Analysis &#x2F; Parsing）**就是把这些单词组合成“句子”，并检查这个句子是否符合 C++ 语言的**“语法结构规则”**。</p>
+<p>干这个活的程序叫做<strong>语法分析器（Parser）</strong>。它接收上一步切好的 <strong>Token 流</strong>，然后像我们小时候分析英语句式（主谓宾）一样，把Token流组装成一棵结构化的树——<strong>抽象语法树（AST, Abstract Syntax Tree）</strong>。</p>
+<h3 id="它是如何构建“语法树”的？"><a href="#它是如何构建“语法树”的？" class="headerlink" title="它是如何构建“语法树”的？"></a>它是如何构建“语法树”的？</h3><p>继续用你刚才的代码举例：</p>
+<p>C++</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">int A = 2;</span><br></pre></td></tr></table></figure>
+
+<p>上一步词法分析交过来的 Token 序列是： <code>[KEYWORD(&quot;int&quot;)] ➔ [IDENTIFIER(&quot;A&quot;)] ➔ [ASSIGN_OP] ➔ [INTEGER_LITERAL(2)] ➔ [SEMICOLON]</code></p>
+<p>语法分析器会根据 C++ 官方定义的**上下文无关文法（CFG）**来推导，最终在内存中搭起一棵这样的**“树”**：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">     [变量声明语句 (Variable Declaration)]</span><br><span class="line">            /                   \</span><br><span class="line">[类型 (Type)]              [初始化声明器 (Init Declarator)]</span><br><span class="line">     |                             /           \</span><br><span class="line">KEYWORD(&quot;int&quot;)       [变量名 (Identifier)]   [初始值 (Initializer)]</span><br><span class="line">                                   |                   |</span><br><span class="line">                             IDENTIFIER(&quot;A&quot;)    INTEGER_LITERAL(2)</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么要大费周章建一棵树？</strong> 因为树状结构能完美表达代码的<strong>执行优先级</strong>和<strong>嵌套关系</strong>。比如遇到 <code>3 + 5 * 4</code>，语法分析器会根据“左结合”和“乘法优先于加法”的语法规则，让 <code>5 * 4</code> 成为树的底层子节点，确保计算顺序不乱。</p>
+<h3 id="语法分析的核心作用"><a href="#语法分析的核心作用" class="headerlink" title="语法分析的核心作用"></a>语法分析的核心作用</h3><h4 id="1-拦截“句式结构错误”-Syntax-Error"><a href="#1-拦截“句式结构错误”-Syntax-Error" class="headerlink" title="1. 拦截“句式结构错误” (Syntax Error)"></a>1. 拦截“句式结构错误” (Syntax Error)</h4><p>这是我们平时写代码最常遇到的报错阶段。如果你的代码不符合句法规则，比如：</p>
+<ul>
+<li><code>int A = ;</code> （赋值号后面没有表达式）</li>
+<li><code>if (A == 2</code> （括号没有闭合）</li>
+</ul>
+<p>当语法分析器尝试把这些 Token 塞进对应的语法树模型时，发现“缺胳膊少腿”，就会立刻中断编译，抛出经典的 <strong><code>syntax error</code>（语法错误）</strong>，并精准指出在哪一行哪一列。</p>
+<h4 id="2-生成抽象语法树-AST，-Abstract-Syntax-Tree"><a href="#2-生成抽象语法树-AST，-Abstract-Syntax-Tree" class="headerlink" title="2. 生成抽象语法树 (AST， Abstract Syntax Tree)"></a>2. 生成抽象语法树 (AST， Abstract Syntax Tree)</h4><p>AST 是编译器后台<strong>最重要</strong>的数据结构。一旦这棵树建立成功，后续的“语义分析（检查类型）”、“中间代码生成”以及“代码优化”，全部都是基于对这棵 AST 进行遍历和修改来完成的。</p>
+<p><strong>AST</strong> 是 <strong>Abstract Syntax Tree（抽象语法树）</strong> 的缩写。</p>
+<p>它是源代码在编译器内存中的<strong>树状几何表达</strong>。</p>
+<ul>
+<li><p><strong>“树”</strong>：因为代码具有层级和嵌套关系（比如函数包含循环，循环包含判断），用树状的分支结构表达最天然。</p>
+</li>
+<li><p><strong>“抽象”</strong>：因为它无视了代码中不重要的细节。比如代码里的空格、换行、甚至是用来强制优先级的**括号 <code>()</code>**，在变成 AST 时都会被丢弃。AST 只保留核心的语法骨架。</p>
+</li>
+<li><p>一句话解释：<strong>因为在树状结构中，越位于“底层（子节点）”的代码，越会被先计算；越位于“顶层（根节点）”的代码，越后计算。</strong></p>
+</li>
+<li><p>语法分析器在建树的时候，就已经把<strong>数学结合律、操作符优先级、括号</strong>等规则，固化成了树的<strong>深度层级</strong>。</p>
+<p>我们通过一个最经典的数学表达式来直观感受：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3</span> + <span class="number">5</span> * <span class="number">4</span>语法分析器如何建树？</span><br></pre></td></tr></table></figure>
+
+<p>根据 C++ 的规则，乘法 <code>*</code> 的优先级高于加法 <code>+</code>。所以语法分析器不会平铺直叙地建树，而是会把 <code>5 * 4</code> 绑在一起，作为一个整体，变成 <code>+</code> 的一个子节点。</p>
+<p>最终生成的 AST 结构如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">      [ 加法节点 (+) ]  &lt;-- 顶层：最后执行</span><br><span class="line">       /          \</span><br><span class="line">[数字: 3]     [ 乘法节点 (*) ]  &lt;-- 底层：优先执行</span><br><span class="line">               /          \</span><br><span class="line">        [数字: 5]        [数字: 4]</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="💡-边界思考：它又有什么“局限性”？"><a href="#💡-边界思考：它又有什么“局限性”？" class="headerlink" title="💡 边界思考：它又有什么“局限性”？"></a>💡 边界思考：它又有什么“局限性”？</h3><p>语法分析的眼光比词法分析更进了一步，它能看懂“句式”，但它<strong>没有脑子，不看上下文，不关心逻辑</strong>。</p>
+<p>比如你写了这样两行代码：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> A = <span class="number">2</span>;</span><br><span class="line"><span class="type">int</span> A = <span class="number">5</span>; <span class="comment">// 致命冲突：重复定义</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>语法分析器：</strong> 读到第一行，“主谓宾齐全，完美，建树！”；读到第二行，“主谓宾也齐全，完美，建树！”。</li>
+<li><strong>结果：</strong> 语法分析顺利通过！因为它觉得这两个“句子”单独看都合法。</li>
+</ul>
+<p>再比如：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> A = <span class="string">&quot;hello&quot;</span>; <span class="comment">// 类型不匹配</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>语法分析器也觉得没问题：<code>[类型] [变量] = [字面量]</code>，句式完全合法。</li>
+</ul>
+<p>这些由于“上下文联系”或“业务逻辑”导致的错误，语法分析器是无能为力的。它们将被移交给编译的第三步——语义分析（Semantic Analysis）来解决。</p>
+<h2 id="语义分析"><a href="#语义分析" class="headerlink" title="语义分析"></a>语义分析</h2><p>如果说<strong>词法分析</strong>是看“有没有错别词”，<strong>语法分析</strong>是看“句子结构合不合语法”，那么**语义分析（Semantic Analysis）**就是看**“这个句子逻辑上到底说不说得通”**。</p>
+<p>干这个活的程序叫<strong>语义分析器（Semantic Analyzer）</strong>。它会结合上下文、变量类型、作用域等规则，对上一步生成的 AST（抽象语法树）进行全方位的“逻辑大体检”。</p>
+<p>在 C++ 中，**静态类型检查（Static Type Checking）**和**符号表（Symbol Table）管理**是语义分析绝对的核心。</p>
+<h3 id="语义分析主要抓哪些“现行犯”？"><a href="#语义分析主要抓哪些“现行犯”？" class="headerlink" title="语义分析主要抓哪些“现行犯”？"></a>语义分析主要抓哪些“现行犯”？</h3><p>语法分析器是非常单纯的，只要句式对了它就给过。而语义分析器则是严厉的“逻辑判官”，专门拦截以下四类伪装得很好的工程错误：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 类型不匹配错误 (Type Mismatch)</span></span><br><span class="line"><span class="type">int</span> A = <span class="string">&quot;hello&quot;</span>; 	</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 变量/函数未定义或重复定义</span></span><br><span class="line"><span class="type">int</span> x = <span class="number">10</span>;</span><br><span class="line"><span class="type">int</span> x = <span class="number">20</span>; <span class="comment">// 犯人 A：同一作用域重复定义</span></span><br><span class="line">y = <span class="number">30</span>;     <span class="comment">// 犯人 B：y 根本没有声明过就拿来用</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 3.函数调用参数不匹配</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">func</span><span class="params">(<span class="type">int</span> a, <span class="type">float</span> b)</span></span>;</span><br><span class="line"><span class="built_in">func</span>(<span class="number">10</span>); <span class="comment">// 漏了参数</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 4. 越权控制检查（作用域与访问权限）</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">my_func</span><span class="params">()</span> </span>&#123;<span class="type">int</span> local_val = <span class="number">5</span>;&#125;</span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;local_val = <span class="number">10</span>; <span class="comment">// 跨作用域访问局部变量&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>它里面内置了很多个规则，就是检查AST等来判断是否符合所有的规则。</p>
+<h2 id="中间代码生成与优化"><a href="#中间代码生成与优化" class="headerlink" title="中间代码生成与优化"></a>中间代码生成与优化</h2><p>到了这一步，代码已经顺利通过了词法、语法和语义的“三重大体检”，被证实是一段完全合法、没有逻辑漏洞的代码。</p>
+<p>接下来的阶段，编译器要干两件非常硬核的事：<strong>中间代码生成（IR Generation）</strong> 与 <strong>代码优化（Optimization）</strong>。</p>
+<h3 id="一、-中间代码生成-IR-Generation"><a href="#一、-中间代码生成-IR-Generation" class="headerlink" title="一、 中间代码生成 (IR Generation)"></a>一、 中间代码生成 (IR Generation)</h3><h4 id="什么是-IR？"><a href="#什么是-IR？" class="headerlink" title="什么是 IR？"></a>什么是 IR？</h4><p><strong>IR</strong> 是 <strong>Intermediate Representation（中间表达&#x2F;中间代码）</strong> 的缩写。</p>
+<p>编译器不会直接把带有高层逻辑的 Annotated AST 瞬间翻译成底层的汇编代码（比如 x86 或 ARM 汇编），因为那样太粗暴、太难写了。相反，它会把 AST “拍平”，生成一种<strong>独立于具体 CPU 架构的、类似于汇编语言的虚拟代码</strong>。最著名的 IR 例子就是 <strong>LLVM IR</strong>。</p>
+<h3 id="为什么要多此一举生成中间代码？（工程艺术）"><a href="#为什么要多此一举生成中间代码？（工程艺术）" class="headerlink" title="为什么要多此一举生成中间代码？（工程艺术）"></a>为什么要多此一举生成中间代码？（工程艺术）</h3><p>假设市面上有 <strong>4 种</strong>高级语言（C++, Rust, Swift, Go），同时有 <strong>4 种</strong> CPU 架构（x86, ARM, RISC-V, MIPS）。</p>
+<ul>
+<li><strong>没有 IR 的世界：</strong> 你需要为每种语言针对每种硬件写一个编译器，总共需要写 $4 \times 4 &#x3D; 16$ 个编译器。</li>
+<li><strong>有 IR 的世界：</strong><ul>
+<li><strong>前端（Frontend）：</strong> 负责把 C++&#x2F;Rust&#x2F;Swift 翻译成<strong>统一的 IR</strong>。</li>
+<li><strong>后端（Backend）：</strong> 负责把这套<strong>统一的 IR</strong> 翻译成对应的 x86&#x2F;ARM 汇编。</li>
+<li>这样只需要写 $4 + 4 &#x3D; 8$ 个模块！而且最强大的<strong>优化算法</strong>只需要针对 IR 写一套，所有语言、所有硬件都能同时享受！</li>
+</ul>
+</li>
+</ul>
+<h3 id="典型的-IR-长什么样？（三地址码-Three-Address-Code）"><a href="#典型的-IR-长什么样？（三地址码-Three-Address-Code）" class="headerlink" title="典型的 IR 长什么样？（三地址码 Three-Address Code）"></a>典型的 IR 长什么样？（三地址码 Three-Address Code）</h3><p>IR 通常采用“三地址码”的形式，即每一行指令最多只能有两个操作数和一个结果。</p>
+<ul>
+<li><p><strong>你的高级代码：</strong> <code>x = a + b * c;</code></p>
+</li>
+<li><p><strong>生成的 IR 虚拟代码：</strong></p>
+<p>代码段</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%t1 = mul i32 %b, %c    ; 先算 b * c，存入临时变量 %t1</span><br><span class="line">%x  = add i32 %a, %t1   ; 再算 a + %t1，存入 %x</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="二、-代码优化-Optimization-编译器的灵魂"><a href="#二、-代码优化-Optimization-编译器的灵魂" class="headerlink" title="二、 代码优化 (Optimization) 编译器的灵魂"></a>二、 代码优化 (Optimization) 编译器的灵魂</h3><p>有了干净、规范的 IR 之后，<strong>优化器（Optimizer）</strong> 就会像个强迫症晚期的数学家一样，疯狂地在 IR 中寻找可以压榨的性能空间。</p>
+<p>我们平时在 GCC&#x2F;Clang 里开启的 <code>-O2</code> 或 <code>-O3</code> 参数，就是在启动这个阶段。优化器会运行几十个甚至上百个“优化 Pass（通道）”，最经典的优化策略有以下几种：</p>
+<h4 id="1-常量折叠与常量传播-Constant-Folding-Propagation"><a href="#1-常量折叠与常量传播-Constant-Folding-Propagation" class="headerlink" title="1. 常量折叠与常量传播 (Constant Folding &amp; Propagation)"></a>1. 常量折叠与常量传播 (Constant Folding &amp; Propagation)</h4><ul>
+<li><p><strong>你写的代码：</strong></p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> seconds = <span class="number">60</span> * <span class="number">60</span> * <span class="number">24</span>; <span class="comment">// 算一天有多少秒</span></span><br><span class="line"><span class="type">int</span> total = seconds * days;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>优化器的操作：</strong> 傻子才在运行时让 CPU 去算 $60 \times 60 \times 24$。优化器在编译时就把它算好了。</p>
+</li>
+<li><p><strong>优化后的 IR 逻辑：</strong></p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> total = <span class="number">86400</span> * days;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="2-死代码消除-Dead-Code-Elimination"><a href="#2-死代码消除-Dead-Code-Elimination" class="headerlink" title="2. 死代码消除 (Dead Code Elimination)"></a>2. 死代码消除 (Dead Code Elimination)</h3><ul>
+<li><p><strong>你写的代码：</strong></p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> debug_mode = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">if</span> (debug_mode) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;Debug active\n&quot;</span>); <span class="comment">// 这段代码永远不可能执行</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>优化器的操作：</strong> 既然绝对走不进去，那连带着这个 <code>if</code> 判断和里面的 <code>printf</code>，在 IR 层面<strong>直接打包丢进垃圾桶</strong>，不占用任何最终的机器码空间。</p>
+</li>
+</ul>
+<h3 id="3-循环展开-Loop-Unrolling"><a href="#3-循环展开-Loop-Unrolling" class="headerlink" title="3. 循环展开 (Loop Unrolling)"></a>3. 循环展开 (Loop Unrolling)</h3><ul>
+<li><p><strong>你写的代码：</strong></p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">3</span>; i++) &#123;</span><br><span class="line">    <span class="built_in">process</span>(i);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>优化器的操作：</strong> 循环是有开销的（每次都要 <code>i++</code> 并判断 <code>i &lt; 3</code> 是否成立）。如果循环次数很少，优化器会直接把循环“拍平”。</p>
+</li>
+<li><p><strong>优化后的 IR 逻辑：</strong></p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">process</span>(<span class="number">0</span>);</span><br><span class="line"><span class="built_in">process</span>(<span class="number">1</span>);</span><br><span class="line"><span class="built_in">process</span>(<span class="number">2</span>); <span class="comment">// 没有任何循环开销，速度极快</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="4-内联函数-Inlining"><a href="#4-内联函数-Inlining" class="headerlink" title="4. 内联函数 (Inlining)"></a>4. 内联函数 (Inlining)</h3><ul>
+<li>如果你写了一个只有一两行的微型函数，每次调用它都要经历：参数压栈、跳转、出栈。开销比函数体本身的计算还要大。</li>
+<li>优化器会直接<strong>把函数的实体代码复制并替换到调用的地方</strong>，彻底消灭函数调用的开销。</li>
+</ul>
+<h3 id="一个让你感到后怕的“工程陷阱”：未定义行为-Undefined-Behavior"><a href="#一个让你感到后怕的“工程陷阱”：未定义行为-Undefined-Behavior" class="headerlink" title="一个让你感到后怕的“工程陷阱”：未定义行为 (Undefined Behavior)"></a>一个让你感到后怕的“工程陷阱”：未定义行为 (Undefined Behavior)</h3><p>优化器是完全基于“数学逻辑和语言标准”来运行的。它在优化时有一个至高无上的前提：<strong>假设程序员写出来的代码完全符合 C++ 标准，绝对没有违反规则。</strong></p>
+<p>如果你写了未定义行为（UB）的代码，优化器就会产生极其诡异的优化，导致完全偏离你的预期。比如：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">check</span><span class="params">(<span class="type">int</span> *ptr)</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> value = *ptr; <span class="comment">// 1. 先解引用了指针</span></span><br><span class="line">    <span class="keyword">if</span> (ptr == <span class="literal">nullptr</span>) &#123; <span class="comment">// 2. 再检查指针是否为空</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>人类的直觉：</strong> “虽然顺序写反了，但好歹有个 <code>if</code> 检查，应该能防住空指针吧？”</li>
+<li><strong>优化器的神逻辑：</strong><ol>
+<li>看到第一行 <code>int value = *ptr;</code>，优化器想：“既然程序员敢解引用 <code>ptr</code>，根据 C++ 标准，<code>ptr</code> 在这里绝对不可能是 <code>nullptr</code>（否则就是非法崩溃）。”</li>
+<li>看到第二行 <code>if (ptr == nullptr)</code>，优化器乐了：“根据我刚才的推导，<code>ptr</code> 必定不为空，所以这个 <code>if</code> 条件永远为 <code>false</code>！”</li>
+<li>触发 <strong>死代码消除</strong>！直接把整个 <code>if</code> 语句全部删掉。</li>
+</ol>
+</li>
+<li><strong>最终结果：</strong> 这个防空指针的 <code>if</code> 块在最终的程序里<strong>根本不存在</strong>。</li>
+</ul>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><ul>
+<li><strong>中间代码生成：</strong> 是把树状的高级语言，降维成<strong>一维的、架构无关的虚拟三地址码（IR）</strong>，实现了前后端分离。</li>
+<li><strong>代码优化：</strong> 是拿着这套 IR，进行逻辑上的<strong>数学去重、剪枝、合并</strong>，用极高的编译期计算，换取运行期极限的执行速度。</li>
+</ul>
+<p>通过了优化的 IR，终于可以精疲力尽地进入最后一步——<strong>目标代码生成（Code Generation）</strong>，让后端根据具体的 CPU，吐出真正的汇编和机器码了。</p>
+<h2 id="生成目标代码"><a href="#生成目标代码" class="headerlink" title="生成目标代码"></a>生成目标代码</h2><h3 id="1-寄存器分配-Register-Allocation-——-压榨-CPU-核心"><a href="#1-寄存器分配-Register-Allocation-——-压榨-CPU-核心" class="headerlink" title="1. 寄存器分配 (Register Allocation) —— 压榨 CPU 核心"></a>1. 寄存器分配 (Register Allocation) —— 压榨 CPU 核心</h3><p>这是后端最难、也是最核心的任务。</p>
+<ul>
+<li><strong>面临的矛盾：</strong> 之前生成的中间代码（IR）可以使用<strong>无限多个</strong>虚拟寄存器（比如 <code>%t1, %t2, %t100...</code>）。但现实是残酷的，物理 CPU 上的通用寄存器数量少得可怜（比如 Intel x86-64 只有 16 个，ARM64 只有 31 个）。</li>
+<li><strong>编译器的做法：</strong> 后端会使用图着色算法（Graph Coloring），极其聪明地计算出哪些变量最常用、最倒霉。把高频使用的变量分配到珍贵的 <strong>CPU 寄存器</strong>里，把低频的变量踢到慢得多的 <strong>内存（栈空间）</strong> 内存中。</li>
+</ul>
+<h3 id="2-指令选择-Instruction-Selection-——-熟知硬件绝活"><a href="#2-指令选择-Instruction-Selection-——-熟知硬件绝活" class="headerlink" title="2. 指令选择 (Instruction Selection) —— 熟知硬件绝活"></a>2. 指令选择 (Instruction Selection) —— 熟知硬件绝活</h3><p>不同的 CPU 指令集，长处完全不同。后端必须是一个“硬件百事通”，用最优的物理指令去实现 IR 的逻辑。</p>
+<ul>
+<li>例如，IR 里有一行代码是把一个整数乘以 4（<code>x = y * 4</code>）。</li>
+<li><strong>平庸的后端：</strong> 翻译成乘法指令 <code>imul</code>。</li>
+<li><strong>聪明的后端：</strong> 熟知 CPU 的位移操作比乘法快得多，直接翻译成左移两位指令 <code>shl</code>。</li>
+<li>如果开启了高级指令集（如 <code>-mavx2</code>），后端还会选择用 <strong>SIMD（单指令多数据）</strong> 向量指令，让 CPU 一个指令同时算 8 个浮点数。</li>
+</ul>
+<h3 id="3-指令调度-Instruction-Scheduling-——-流水线防堵车"><a href="#3-指令调度-Instruction-Scheduling-——-流水线防堵车" class="headerlink" title="3. 指令调度 (Instruction Scheduling) —— 流水线防堵车"></a>3. 指令调度 (Instruction Scheduling) —— 流水线防堵车</h3><p>现代 CPU 内部是有指令流水线（Pipeline）的，如果前后两行指令有强烈的依赖关系（比如第二行必须等第一行从内存读完数据才能算），CPU 就会陷入停顿（Stall）摸鱼。</p>
+<ul>
+<li>后端会重新排列汇编指令的顺序，在两行有依赖的指令中间，穿插一些无关的独立指令，把 CPU 流水线塞满，防止硬件发生“气泡（Bubble）”。</li>
+</ul>
+<h2 id="编译阶段的终点：生成-o-目标文件"><a href="#编译阶段的终点：生成-o-目标文件" class="headerlink" title="编译阶段的终点：生成 .o 目标文件"></a>编译阶段的终点：生成 <code>.o</code> 目标文件</h2><p>当后端把寄存器分好、指令调好后，它会吐出 <code>.s</code> 汇编。</p>
+<h2 id="汇编"><a href="#汇编" class="headerlink" title="汇编"></a>汇编</h2><h4 id="1-编译阶段（Compilation）"><a href="#1-编译阶段（Compilation）" class="headerlink" title="1. 编译阶段（Compilation）"></a>1. 编译阶段（Compilation）</h4><ul>
+<li><strong>执行者：</strong> <code>cc1plus</code>（GCC 的 C++ 编译器前端+优化器+后端）。</li>
+<li><strong>输入：</strong> 预处理后的纯文本（<code>.i</code>）。</li>
+<li><strong>输出：</strong> 汇编语言文本（<code>.s</code>）。</li>
+<li><strong>本质：</strong> 复杂的“逻辑语法翻译”，此时依然是<strong>人类可读的文字</strong>（如 <code>mov eax, 1</code>）。</li>
+</ul>
+<h4 id="2-汇编阶段（Assembling）"><a href="#2-汇编阶段（Assembling）" class="headerlink" title="2. 汇编阶段（Assembling）"></a>2. 汇编阶段（Assembling）</h4><ul>
+<li><strong>执行者：</strong> <code>as</code>（GNU 汇编器，Assembler）。</li>
+<li><strong>输入：</strong> 汇编语言文本（<code>.s</code>）。</li>
+<li><strong>输出：</strong> 二进制机器码目标文件（<code>.o</code> 或 <code>.obj</code>）。</li>
+<li><strong>本质：</strong> 极其机械的“查表翻译”。汇编器里有一张对照表，看到 <code>mov</code> 就换成对应的二进制硬编码（如 <code>0x89</code>），不需要任何复杂的语法分析或性能优化。</li>
+</ul>
+<p><strong>汇编（Assembling）</strong> 的过程，用一句话概括就是：<strong>“查表翻译”</strong>。</p>
+<p>在物理层面上，它由一个独立的工具（在 Linux 上叫 <code>as</code>，即 GNU Assembler）执行。它接收上一步编译出来的 <strong>汇编文本文件（<code>.s</code>）</strong>，将其翻译成 CPU 能够直接执行的 <strong>二进制机器码</strong>，并打包成 <strong>目标对象文件（<code>.o</code> 或 <code>.obj</code>）</strong>。</p>
+<p>与前面充满“高深数学和激进优化”的编译阶段不同，汇编阶段非常机械纯粹——它没有复杂的语法树，也不做性能优化，纯粹是“按部就班地把文字换成数字”。</p>
+<h3 id="1-汇编器在后台具体干了什么？"><a href="#1-汇编器在后台具体干了什么？" class="headerlink" title="1. 汇编器在后台具体干了什么？"></a>1. 汇编器在后台具体干了什么？</h3><p>汇编器从上到下逐行扫描 <code>.s</code> 文件，主要执行以下三个核心动作：</p>
+<h4 id="A-助记符转机器码（Opcode-Mapping）"><a href="#A-助记符转机器码（Opcode-Mapping）" class="headerlink" title="A. 助记符转机器码（Opcode Mapping）"></a>A. 助记符转机器码（Opcode Mapping）</h4><p>CPU 根本看不懂 <code>mov</code>、<code>add</code>、<code>push</code> 这样的英文单词（这些叫<strong>助记符</strong>）。CPU 只认特定的二进制硬编码（<strong>操作码，Opcode</strong>）。</p>
+<ul>
+<li>汇编器内部自带一张针对特定 CPU 架构的<strong>硬编码对照表</strong>。</li>
+<li>扫描到 <code>mov eax, 1</code> ➔ 查表 ➔ 替换成十六进制数据（例如 <code>B8 01 00 00 00</code>）。</li>
+</ul>
+<h4 id="B-符号收集与地址计算"><a href="#B-符号收集与地址计算" class="headerlink" title="B. 符号收集与地址计算"></a>B. 符号收集与地址计算</h4><p>你在写汇编时，会看到很多“标签（Labels）”，比如循环的跳转点或函数入口：</p>
+<p>代码段</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">.L2:</span><br><span class="line">    add eax, 1</span><br><span class="line">    cmp eax, 10</span><br><span class="line">    jl  .L2       ; 跳回 .L2 标签处</span><br></pre></td></tr></table></figure>
+
+<p>CPU 同样不懂什么是 <code>.L2</code>。汇编器在扫描时，会计算出 <code>.L2</code> 这一行指令在当前代码段中的<strong>相对字节偏移量</strong>。</p>
+<ul>
+<li>如果计算出 <code>.L2</code> 距离当前跳转指令是往回数 12 个字节，汇编器就会把 <code>jl .L2</code> 翻译成类似 <code>EB F4</code>（<code>F4</code> 是 -12 的补码）的机器码。</li>
+<li><strong>这就把人类可读的“名字标签”变成了机器可读的“相对物理距离”。</strong></li>
+</ul>
+<h4 id="C-数据与指令分流（划分-Section）"><a href="#C-数据与指令分流（划分-Section）" class="headerlink" title="C. 数据与指令分流（划分 Section）"></a>C. 数据与指令分流（划分 Section）</h4><p>汇编器会根据汇编代码中的指示（如 <code>.text</code>、<code>.data</code>），把机器指令和全局变量分别归类，整齐地塞进最终 <code>.o</code> 文件的不同格子（段&#x2F;Section）里。</p>
+<h3 id="2-汇编产物-o-文件大拆解"><a href="#2-汇编产物-o-文件大拆解" class="headerlink" title="2. 汇编产物 .o 文件大拆解"></a>2. 汇编产物 <code>.o</code> 文件大拆解</h3><p>汇编结束后的产物是 <strong>目标文件（Object File）</strong>。它是一个已经符合操作系统二进制规范（Linux 的 ELF，Mac 的 Mach-O，Windows 的 PE）的“毛坯房”。</p>
+<p>如果你用十六进制查看器（如 <code>hexdump</code>）打开一个 <code>main.o</code>，它内部的结构极其规范，主要包含以下核心部分：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">+-----------------------------------+</span><br><span class="line">| 1. 文件头 (ELF Header)            | -&gt; 标注它是 64位、x86 还是 ARM 架构</span><br><span class="line">+-----------------------------------+</span><br><span class="line">| 2. 代码段 (.text)                 | -&gt; 纯粹的 CPU 机器指令（101011...）</span><br><span class="line">+-----------------------------------+</span><br><span class="line">| 3. 数据段 (.data)                 | -&gt; 已初始化的全局变量</span><br><span class="line">+-----------------------------------+</span><br><span class="line">| 4. BSS段 (.bss)                   | -&gt; 未初始化的全局变量（全清零）</span><br><span class="line">+-----------------------------------+</span><br><span class="line">| 5. 符号表 (Symbol Table)          | -&gt; 记录该文件导出了哪些函数，引用了哪些外部函数</span><br><span class="line">+-----------------------------------+</span><br><span class="line">| 6. 重定位表 (Relocation Table)     | -&gt; 重点！记录所有“没填上的地址陷阱”</span><br><span class="line">+-----------------------------------+</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-汇编阶段留下的工程“扣子”：重定位表"><a href="#3-汇编阶段留下的工程“扣子”：重定位表" class="headerlink" title="3. 汇编阶段留下的工程“扣子”：重定位表"></a>3. 汇编阶段留下的工程“扣子”：重定位表</h3><p>汇编器是极其“短视”的，它<strong>一次只处理一个文件</strong>。</p>
+<p>假设你的 <code>main.cpp</code> 调用了 <code>B.h</code> 里的一个函数 <code>void func_in_B()</code>：</p>
+<ol>
+<li><p>汇编器在处理 <code>main.s</code> 时，扫描到了 <code>call func_in_B</code> 这条指令。</p>
+</li>
+<li><p>汇编器去自己的文件里翻了个遍，破口大骂：“<em>我这个文件里根本没有 <code>func_in_B</code> 的定义，我上哪知道它的物理内存地址去？！</em>”</p>
+</li>
+<li><p><strong>汇编器的妥协做法：</strong> 它在机器码里留下 4 个字节的空白（全填 <code>00 00 00 00</code>），然后在 <strong>重定位表（Relocation Table）</strong> 里狠狠记上一笔：</p>
+<blockquote>
+<p><em>“在 <code>.text</code> 段的第 <code>0x24</code> 字节处，有一个叫 <code>func_in_B</code> 的函数调用。我现在填的是假地址 0。未来的链接器（Linker）老哥，你把各个 <code>.o</code> 文件拼起来的时候，<strong>记得把这里改成真正的地址！</strong></em>”</p>
+</blockquote>
+</li>
+</ol>
+<p>汇编器做的工作不多，所以一下就讲完了。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>Author: </span><span class="post-copyright-info"><a href="https://q1375854021.github.io/QQBlog">QQLaoban</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>Link: </span><span class="post-copyright-info"><a href="https://q1375854021.github.io/QQBlog/2026/05/06/Compile-And-Linker-3-Compile_And_Assembler/">https://q1375854021.github.io/QQBlog/2026/05/06/Compile-And-Linker-3-Compile_And_Assembler/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>Copyright Notice: </span><span class="post-copyright-info">All articles on this blog are licensed under <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> unless otherwise stated.</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/QQBlog/tags/%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97/">编译与链接学习系列</a></div><div class="post-share"><div class="social-share" data-image="/QQBlog/img/butterfly-icon.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/QQBlog/2026/06/01/CPP%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E6%A8%A1%E6%9D%BF%E5%85%83%E7%BC%96%E7%A8%8B/" title="CPP学习系列-模板元编程"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info"><div class="info-1"><div class="info-item-1">Previous</div><div class="info-item-2">CPP学习系列-模板元编程</div></div><div class="info-2"><div class="info-item-1">CPP学习系列-模板元编程本文档系统整理了 C++ 模板与泛型编程的核心概念，按照知识学习的逻辑曲线编排，从基础概念到高级技巧，逐步深入。每个知识点都配有详细的原理解析和代码示例。 另外，本来注释和代码写的挺全面的，但是这里AI生成笔记的时候，AI直接把大部分内容简化了，但是核心代码还在。这也是一种好事，就是精简了笔记的内容，初期阶段使用AI+笔记即可，后期熟悉了直接扫一遍笔记都能回想起来。老少皆宜属于是。  目录 左值与右值：理解参数传递的本质 引用与引用折叠 模板基础 模板特化 SFINAE：替换失败不是错误 完美转发 可变参数模板 CRTP：奇特递归模板模式 类型萃取（type_traits） 编译期计算 非类型模板参数（NTTP） iterator_traits C++20 Concepts：概念约束 C++20 requires：编译期审查机制 智能指针   1. 左值与右值：理解参数传递的本质1.1 什么是左值与右值在 C++ 中，表达式可以分为左值（lvalue）和右值（rvalue）两类：  左值（lvalue）：可以取地址的表达式，有持久的存储位置 右值（rva...</div></div></div></a><a class="pagination-related" href="/QQBlog/2026/05/06/Compile-And-Linker-2-Preprocessing/" title="编译与链接-2-预处理"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">Next</div><div class="info-item-2">编译与链接-2-预处理</div></div><div class="info-2"><div class="info-item-1">预处理预处理（Preprocessing）是编译过程的第一道工序。如果将编译比作建造房屋，预处理就是施工前的材料加工——在这个阶段，编译器尚未开始检查语法，它仅根据预处理指令对源代码文件执行文本替换、裁剪与合并操作。 在 Linux 环境下，可通过 gcc -E main.c -o main.i 查看预处理后的文件（.i 后缀），这是学习预处理机制最直接的手段。 1. 预处理的核心任务预处理的操作由预处理指令（以 # 开头）驱动，主要分为以下四类： A. 文件包含 (#include) 动作： 将目标文件的全部内容直接插入到 #include 指令所在的当前位置。 核心风险： 若出现循环包含（A 包含 B，B 又包含 A），预处理器将陷入无限递归，直至内存耗尽。 解决方案： 使用包含卫士（Include Guards）或 #pragma once。  B. 宏定义 (#define)这是预处理器中最强大、同时也最容易引入缺陷的功能。宏展开执行的是纯文本替换，而非语义层面的求值。  对象宏： #define PI 3.14 函数宏： #define MAX(a, b) ((a) &...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>Related Articles</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/QQBlog/2026/05/06/Compile-And-Linker-2-Preprocessing/" title="编译与链接-2-预处理"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-06</div><div class="info-item-2">编译与链接-2-预处理</div></div><div class="info-2"><div class="info-item-1">预处理预处理（Preprocessing）是编译过程的第一道工序。如果将编译比作建造房屋，预处理就是施工前的材料加工——在这个阶段，编译器尚未开始检查语法，它仅根据预处理指令对源代码文件执行文本替换、裁剪与合并操作。 在 Linux 环境下，可通过 gcc -E main.c -o main.i 查看预处理后的文件（.i 后缀），这是学习预处理机制最直接的手段。 1. 预处理的核心任务预处理的操作由预处理指令（以 # 开头）驱动，主要分为以下四类： A. 文件包含 (#include) 动作： 将目标文件的全部内容直接插入到 #include 指令所在的当前位置。 核心风险： 若出现循环包含（A 包含 B，B 又包含 A），预处理器将陷入无限递归，直至内存耗尽。 解决方案： 使用包含卫士（Include Guards）或 #pragma once。  B. 宏定义 (#define)这是预处理器中最强大、同时也最容易引入缺陷的功能。宏展开执行的是纯文本替换，而非语义层面的求值。  对象宏： #define PI 3.14 函数宏： #define MAX(a, b) ((a) &...</div></div></div></a><a class="pagination-related" href="/QQBlog/2026/05/06/Compile-And-Linker-1-Section/" title="编译与链接-1-Section"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-06</div><div class="info-item-2">编译与链接-1-Section</div></div><div class="info-2"><div class="info-item-1">ELF 段（Section）完整学习笔记 本文档以 readelf -S libcompile_learn.so 的输出为线索，系统梳理 ELF 二进制文件中各段（Section）的底层原理、数据结构与运行时行为。全文按照 “从元信息到代码数据，从静态链接到动态运行，从异常处理到调试信息” 的逻辑链路重新编排，并在关键节点补充编译期与运行期的深度剖析。   一、ELF 文件基础与元信息段[0] NULL 段（哨兵段）NULL 段是所有 ELF 文件的 &#x3D;&#x3D;零号锚点&#x3D;&#x3D;，其索引号为 0，所有字段被刻意清零。 设计意图：    维度 说明    哨兵语义 sh_type == SHT_NULL 在所有条件判断中天然为假，作为”无段”的有效返回值   边界安全 防止索引越界——任何对 sections[0] 的访问都不会产生未定义行为   溢出收容 当段数量超过 ELF 头部 e_shnum 字段的编码上限时，扩展计数会被存入 NULL 段的 sh_size 与 sh_link 字段    &#x3D;&#x3D;NULL 段并非”空无一物”，而...</div></div></div></a><a class="pagination-related" href="/QQBlog/2026/07/04/Compile-And-Linker-4-Linker/" title="编译与链接-4-链接"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-04</div><div class="info-item-2">编译与链接-4-链接</div></div><div class="info-2"><div class="info-item-1">链接</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> Comments</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/QQBlog/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/QQBlog/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">QQLaoban</div><div class="author-info-description"></div><div class="site-data"><a href="/QQBlog/archives/"><div class="headline">Articles</div><div class="length-num">12</div></a><a href="/QQBlog/tags/"><div class="headline">Tags</div><div class="length-num">5</div></a><a href="/QQBlog/categories/"><div class="headline">Categories</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/q1375854021"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>Announcement</span></div><div class="announcement_content">This is my Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>Contents</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E4%B8%8E%E6%B1%87%E7%BC%96"><span class="toc-number">1.</span> <span class="toc-text">编译与汇编</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E5%99%A8%E5%9C%A8%E5%90%8E%E5%8F%B0%E5%B9%B2%E7%9A%84-5-%E4%BB%B6%E7%A1%AC%E6%A0%B8%E4%BA%8B"><span class="toc-number">1.1.</span> <span class="toc-text">编译器在后台干的 5 件硬核事</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90-Lexical-Analysis"><span class="toc-number">1.1.1.</span> <span class="toc-text">1. 词法分析 (Lexical Analysis)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90-Parsing"><span class="toc-number">1.1.2.</span> <span class="toc-text">2. 语法分析 (Parsing)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E8%AF%AD%E4%B9%89%E5%88%86%E6%9E%90-Semantic-Analysis"><span class="toc-number">1.1.3.</span> <span class="toc-text">3. 语义分析 (Semantic Analysis)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E4%B8%AD%E9%97%B4%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90%E4%B8%8E%E4%BC%98%E5%8C%96-IR-Optimization-%E6%9C%80%E6%A0%B8%E5%BF%83%E7%9A%84%E4%B8%80%E6%AD%A5"><span class="toc-number">1.1.4.</span> <span class="toc-text">4. 中间代码生成与优化 (IR &amp; Optimization)  最核心的一步</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E7%9B%AE%E6%A0%87%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90-Code-Generation"><span class="toc-number">1.1.5.</span> <span class="toc-text">5. 目标代码生成 (Code Generation)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E9%98%B6%E6%AE%B5%E4%BD%A0%E5%BF%85%E9%A1%BB%E8%AE%A4%E8%AF%86%E7%9A%84-GCC-%E6%A0%B8%E5%BF%83%E5%8F%82%E6%95%B0"><span class="toc-number">1.2.</span> <span class="toc-text">编译阶段你必须认识的 GCC 核心参数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90"><span class="toc-number">1.3.</span> <span class="toc-text">词法分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90%EF%BC%9F"><span class="toc-number">1.3.1.</span> <span class="toc-text">什么是词法分析？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90%E7%9A%84%E5%85%B7%E4%BD%93%E8%BF%87%E7%A8%8B%EF%BC%88%E7%A1%AC%E6%A0%B8%E6%8B%86%E8%A7%A3%EF%BC%89"><span class="toc-number">1.3.2.</span> <span class="toc-text">词法分析的具体过程（硬核拆解）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%83%E7%9A%84%E6%A0%B8%E5%BF%83%E4%BD%9C%E7%94%A8%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.3.3.</span> <span class="toc-text">它的核心作用是什么？</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-%E8%BF%87%E6%BB%A4%E5%99%AA%E5%A3%B0%EF%BC%8C%E5%87%8F%E8%BD%BB%E5%90%8E%E7%BB%AD%E6%B5%81%E6%B0%B4%E7%BA%BF%E7%9A%84%E8%B4%9F%E6%8B%85"><span class="toc-number">1.3.3.1.</span> <span class="toc-text">1. 过滤噪声，减轻后续流水线的负担</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-%E5%88%9D%E6%AD%A5%E5%88%86%E7%B1%BB%EF%BC%8C%E5%BB%BA%E7%AB%8B%E7%AC%A6%E5%8F%B7%E8%A1%A8%E9%9B%8F%E5%BD%A2"><span class="toc-number">1.3.3.2.</span> <span class="toc-text">2. 初步分类，建立符号表雏形</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-%E6%8B%A6%E6%88%AA%E6%9C%80%E5%9F%BA%E7%A1%80%E7%9A%84%E2%80%9C%E9%9D%9E%E6%B3%95%E5%AD%97%E7%AC%A6%E2%80%9D%E9%94%99%E8%AF%AF"><span class="toc-number">1.3.3.3.</span> <span class="toc-text">3. 拦截最基础的“非法字符”错误</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%F0%9F%92%A1-%E8%BE%B9%E7%95%8C%E6%80%9D%E8%80%83%EF%BC%9A%E5%AE%83%E4%B8%8D%E8%83%BD%E5%81%9A%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.3.4.</span> <span class="toc-text">💡 边界思考：它不能做什么？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90"><span class="toc-number">1.4.</span> <span class="toc-text">语法分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%83%E6%98%AF%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E2%80%9C%E8%AF%AD%E6%B3%95%E6%A0%91%E2%80%9D%E7%9A%84%EF%BC%9F"><span class="toc-number">1.4.1.</span> <span class="toc-text">它是如何构建“语法树”的？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%AD%E6%B3%95%E5%88%86%E6%9E%90%E7%9A%84%E6%A0%B8%E5%BF%83%E4%BD%9C%E7%94%A8"><span class="toc-number">1.4.2.</span> <span class="toc-text">语法分析的核心作用</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-%E6%8B%A6%E6%88%AA%E2%80%9C%E5%8F%A5%E5%BC%8F%E7%BB%93%E6%9E%84%E9%94%99%E8%AF%AF%E2%80%9D-Syntax-Error"><span class="toc-number">1.4.2.1.</span> <span class="toc-text">1. 拦截“句式结构错误” (Syntax Error)</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-%E7%94%9F%E6%88%90%E6%8A%BD%E8%B1%A1%E8%AF%AD%E6%B3%95%E6%A0%91-AST%EF%BC%8C-Abstract-Syntax-Tree"><span class="toc-number">1.4.2.2.</span> <span class="toc-text">2. 生成抽象语法树 (AST， Abstract Syntax Tree)</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%F0%9F%92%A1-%E8%BE%B9%E7%95%8C%E6%80%9D%E8%80%83%EF%BC%9A%E5%AE%83%E5%8F%88%E6%9C%89%E4%BB%80%E4%B9%88%E2%80%9C%E5%B1%80%E9%99%90%E6%80%A7%E2%80%9D%EF%BC%9F"><span class="toc-number">1.4.3.</span> <span class="toc-text">💡 边界思考：它又有什么“局限性”？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%AD%E4%B9%89%E5%88%86%E6%9E%90"><span class="toc-number">1.5.</span> <span class="toc-text">语义分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%AD%E4%B9%89%E5%88%86%E6%9E%90%E4%B8%BB%E8%A6%81%E6%8A%93%E5%93%AA%E4%BA%9B%E2%80%9C%E7%8E%B0%E8%A1%8C%E7%8A%AF%E2%80%9D%EF%BC%9F"><span class="toc-number">1.5.1.</span> <span class="toc-text">语义分析主要抓哪些“现行犯”？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%AD%E9%97%B4%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90%E4%B8%8E%E4%BC%98%E5%8C%96"><span class="toc-number">1.6.</span> <span class="toc-text">中间代码生成与优化</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80%E3%80%81-%E4%B8%AD%E9%97%B4%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90-IR-Generation"><span class="toc-number">1.6.1.</span> <span class="toc-text">一、 中间代码生成 (IR Generation)</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF-IR%EF%BC%9F"><span class="toc-number">1.6.1.1.</span> <span class="toc-text">什么是 IR？</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%A4%9A%E6%AD%A4%E4%B8%80%E4%B8%BE%E7%94%9F%E6%88%90%E4%B8%AD%E9%97%B4%E4%BB%A3%E7%A0%81%EF%BC%9F%EF%BC%88%E5%B7%A5%E7%A8%8B%E8%89%BA%E6%9C%AF%EF%BC%89"><span class="toc-number">1.6.2.</span> <span class="toc-text">为什么要多此一举生成中间代码？（工程艺术）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B8%E5%9E%8B%E7%9A%84-IR-%E9%95%BF%E4%BB%80%E4%B9%88%E6%A0%B7%EF%BC%9F%EF%BC%88%E4%B8%89%E5%9C%B0%E5%9D%80%E7%A0%81-Three-Address-Code%EF%BC%89"><span class="toc-number">1.6.3.</span> <span class="toc-text">典型的 IR 长什么样？（三地址码 Three-Address Code）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C%E3%80%81-%E4%BB%A3%E7%A0%81%E4%BC%98%E5%8C%96-Optimization-%E7%BC%96%E8%AF%91%E5%99%A8%E7%9A%84%E7%81%B5%E9%AD%82"><span class="toc-number">1.6.4.</span> <span class="toc-text">二、 代码优化 (Optimization) 编译器的灵魂</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-%E5%B8%B8%E9%87%8F%E6%8A%98%E5%8F%A0%E4%B8%8E%E5%B8%B8%E9%87%8F%E4%BC%A0%E6%92%AD-Constant-Folding-Propagation"><span class="toc-number">1.6.4.1.</span> <span class="toc-text">1. 常量折叠与常量传播 (Constant Folding &amp; Propagation)</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E6%AD%BB%E4%BB%A3%E7%A0%81%E6%B6%88%E9%99%A4-Dead-Code-Elimination"><span class="toc-number">1.6.5.</span> <span class="toc-text">2. 死代码消除 (Dead Code Elimination)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E5%BE%AA%E7%8E%AF%E5%B1%95%E5%BC%80-Loop-Unrolling"><span class="toc-number">1.6.6.</span> <span class="toc-text">3. 循环展开 (Loop Unrolling)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E5%86%85%E8%81%94%E5%87%BD%E6%95%B0-Inlining"><span class="toc-number">1.6.7.</span> <span class="toc-text">4. 内联函数 (Inlining)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E8%AE%A9%E4%BD%A0%E6%84%9F%E5%88%B0%E5%90%8E%E6%80%95%E7%9A%84%E2%80%9C%E5%B7%A5%E7%A8%8B%E9%99%B7%E9%98%B1%E2%80%9D%EF%BC%9A%E6%9C%AA%E5%AE%9A%E4%B9%89%E8%A1%8C%E4%B8%BA-Undefined-Behavior"><span class="toc-number">1.6.8.</span> <span class="toc-text">一个让你感到后怕的“工程陷阱”：未定义行为 (Undefined Behavior)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">1.6.9.</span> <span class="toc-text">总结</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E7%9B%AE%E6%A0%87%E4%BB%A3%E7%A0%81"><span class="toc-number">1.7.</span> <span class="toc-text">生成目标代码</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E5%AF%84%E5%AD%98%E5%99%A8%E5%88%86%E9%85%8D-Register-Allocation-%E2%80%94%E2%80%94-%E5%8E%8B%E6%A6%A8-CPU-%E6%A0%B8%E5%BF%83"><span class="toc-number">1.7.1.</span> <span class="toc-text">1. 寄存器分配 (Register Allocation) —— 压榨 CPU 核心</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E6%8C%87%E4%BB%A4%E9%80%89%E6%8B%A9-Instruction-Selection-%E2%80%94%E2%80%94-%E7%86%9F%E7%9F%A5%E7%A1%AC%E4%BB%B6%E7%BB%9D%E6%B4%BB"><span class="toc-number">1.7.2.</span> <span class="toc-text">2. 指令选择 (Instruction Selection) —— 熟知硬件绝活</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E6%8C%87%E4%BB%A4%E8%B0%83%E5%BA%A6-Instruction-Scheduling-%E2%80%94%E2%80%94-%E6%B5%81%E6%B0%B4%E7%BA%BF%E9%98%B2%E5%A0%B5%E8%BD%A6"><span class="toc-number">1.7.3.</span> <span class="toc-text">3. 指令调度 (Instruction Scheduling) —— 流水线防堵车</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E9%98%B6%E6%AE%B5%E7%9A%84%E7%BB%88%E7%82%B9%EF%BC%9A%E7%94%9F%E6%88%90-o-%E7%9B%AE%E6%A0%87%E6%96%87%E4%BB%B6"><span class="toc-number">1.8.</span> <span class="toc-text">编译阶段的终点：生成 .o 目标文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B1%87%E7%BC%96"><span class="toc-number">1.9.</span> <span class="toc-text">汇编</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-%E7%BC%96%E8%AF%91%E9%98%B6%E6%AE%B5%EF%BC%88Compilation%EF%BC%89"><span class="toc-number">1.9.0.1.</span> <span class="toc-text">1. 编译阶段（Compilation）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-%E6%B1%87%E7%BC%96%E9%98%B6%E6%AE%B5%EF%BC%88Assembling%EF%BC%89"><span class="toc-number">1.9.0.2.</span> <span class="toc-text">2. 汇编阶段（Assembling）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E6%B1%87%E7%BC%96%E5%99%A8%E5%9C%A8%E5%90%8E%E5%8F%B0%E5%85%B7%E4%BD%93%E5%B9%B2%E4%BA%86%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.9.1.</span> <span class="toc-text">1. 汇编器在后台具体干了什么？</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#A-%E5%8A%A9%E8%AE%B0%E7%AC%A6%E8%BD%AC%E6%9C%BA%E5%99%A8%E7%A0%81%EF%BC%88Opcode-Mapping%EF%BC%89"><span class="toc-number">1.9.1.1.</span> <span class="toc-text">A. 助记符转机器码（Opcode Mapping）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#B-%E7%AC%A6%E5%8F%B7%E6%94%B6%E9%9B%86%E4%B8%8E%E5%9C%B0%E5%9D%80%E8%AE%A1%E7%AE%97"><span class="toc-number">1.9.1.2.</span> <span class="toc-text">B. 符号收集与地址计算</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#C-%E6%95%B0%E6%8D%AE%E4%B8%8E%E6%8C%87%E4%BB%A4%E5%88%86%E6%B5%81%EF%BC%88%E5%88%92%E5%88%86-Section%EF%BC%89"><span class="toc-number">1.9.1.3.</span> <span class="toc-text">C. 数据与指令分流（划分 Section）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E6%B1%87%E7%BC%96%E4%BA%A7%E7%89%A9-o-%E6%96%87%E4%BB%B6%E5%A4%A7%E6%8B%86%E8%A7%A3"><span class="toc-number">1.9.2.</span> <span class="toc-text">2. 汇编产物 .o 文件大拆解</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E6%B1%87%E7%BC%96%E9%98%B6%E6%AE%B5%E7%95%99%E4%B8%8B%E7%9A%84%E5%B7%A5%E7%A8%8B%E2%80%9C%E6%89%A3%E5%AD%90%E2%80%9D%EF%BC%9A%E9%87%8D%E5%AE%9A%E4%BD%8D%E8%A1%A8"><span class="toc-number">1.9.3.</span> <span class="toc-text">3. 汇编阶段留下的工程“扣子”：重定位表</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>Recent Posts</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/07/04/Compile-And-Linker-4-Linker/" title="编译与链接-4-链接">编译与链接-4-链接</a><time datetime="2026-07-04T12:03:15.000Z" title="Created 2026-07-04 20:03:15">2026-07-04</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/06/01/CPP%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E6%A8%A1%E6%9D%BF%E5%85%83%E7%BC%96%E7%A8%8B/" title="CPP学习系列-模板元编程">CPP学习系列-模板元编程</a><time datetime="2026-05-31T17:05:36.000Z" title="Created 2026-06-01 01:05:36">2026-06-01</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/05/06/GPU%E5%AD%A6%E4%B9%A0-GPU%E7%BB%84%E6%88%90%E4%B8%8E%E5%85%B3%E9%94%AE%E9%83%A8%E5%88%86%E5%8E%9F%E7%90%86/" title="GPU学习-GPU组成与关键部分原理">GPU学习-GPU组成与关键部分原理</a><time datetime="2026-05-06T12:03:15.000Z" title="Created 2026-05-06 20:03:15">2026-05-06</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/05/06/Compile-And-Linker-1-Section/" title="编译与链接-1-Section">编译与链接-1-Section</a><time datetime="2026-05-06T12:03:15.000Z" title="Created 2026-05-06 20:03:15">2026-05-06</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/QQBlog/2026/05/06/Compile-And-Linker-2-Preprocessing/" title="编译与链接-2-预处理">编译与链接-2-预处理</a><time datetime="2026-05-06T12:03:15.000Z" title="Created 2026-05-06 20:03:15">2026-05-06</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By QQLaoban</span><span class="framework-info"><span>Framework </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>Theme </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="Reading Mode"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="Toggle Between Light and Dark Mode"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="Toggle Between Single-column and Double-column"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="Settings"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="Table of Contents"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="Scroll to Comments"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="Back to Top"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/QQBlog/js/utils.js?v=5.5.4"></script><script src="/QQBlog/js/main.js?v=5.5.4"></script><div class="js-pjax"><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'q1375854021/QQBlog',
+      'data-repo-id': 'R_kgDORoHzLw',
+      'data-category-id': 'DIC_kwDORoHzL84C4f2N',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
